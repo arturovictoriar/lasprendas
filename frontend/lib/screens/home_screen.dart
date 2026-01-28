@@ -133,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             },
                           )
-                        : Image.asset('assets/images/mannequin.png', fit: BoxFit.contain),
+                        : Image.asset('assets/images/mannequin_anchor.png', fit: BoxFit.contain),
                     
                     if (_isLoading)
                       Container(
