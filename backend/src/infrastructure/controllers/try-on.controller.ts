@@ -1,5 +1,5 @@
-import { Controller, Post, UploadedFile, UseInterceptors, Body } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Post, UploadedFiles, UseInterceptors, Body } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -9,7 +9,7 @@ export class TryOnController {
     constructor(private readonly virtualTryOnUseCase: VirtualTryOnUseCase) { }
 
     @Post()
-    @UseInterceptors(FileInterceptor('image', {
+    @UseInterceptors(FilesInterceptor('images', 4, {
         storage: diskStorage({
             destination: './uploads',
             filename: (req, file, cb) => {
@@ -19,14 +19,15 @@ export class TryOnController {
         })
     }))
     async uploadGarment(
-        @UploadedFile() file: Express.Multer.File,
+        @UploadedFiles() files: Express.Multer.File[],
         @Body('category') category: string
     ) {
-        const resultPath = await this.virtualTryOnUseCase.execute(file.path, category || 'clothing');
+        const filePaths = files.map(f => f.path);
+        const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing');
         return {
             success: true,
             resultPath: resultPath,
-            originalPath: file.path
+            originalPaths: filePaths
         };
     }
 }

@@ -15,17 +15,37 @@ export class VirtualTryOnUseCase {
         private readonly tryOnService: ITryOnService,
     ) { }
 
-    async execute(garmentImagePath: string, category: string): Promise<string> {
-        // 1. Save garment reference in DB
-        const garment = new Garment(null, garmentImagePath, category, new Date());
-        const savedGarment = await this.garmentRepository.save(garment);
+    async execute(garmentImagePaths: string[], category: string): Promise<string> {
+        // 1. Save garment references in DB
+        const garments = await Promise.all(garmentImagePaths.map(async (path) => {
+            const garment = new Garment(null, path, category, new Date());
+            return await this.garmentRepository.save(garment);
+        }));
 
         // 2. Perform Virtual Try-On
         const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
 
-        const prompt = `Identity and Transfer: Take the gray mannequin from Image 1 as the anchor. Analyze the clothing or accessory in the additional uploaded images and automatically fit it to the corresponding body part on the mannequin. If it's a top, fit it to the torso; if it's footwear, fit it to the feet; if it's an accessory, place it in its natural position. Maintain the mannequin's gray texture, the original studio lighting, and the neutral background. Ensure the fabric draping and scale are realistic based on the mannequin's pose. Do not modify the mannequin or the background.`;
+        const prompt = `
+            STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
+            The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
+            Do NOT change its pose, face, skin color (gray), body shape, or background.
+            
+            TRANSFER TASK:
+            Analyze the clothing items in the additional images (Images 2, 3, etc.).
+            Fit ALL these items onto the mannequin from Image 1 simultaneously.
+            - Tops/Shirts go to the torso.
+            - Bottoms/Pants go to the legs.
+            - Accessories go to their respective natural positions.
+            
+            REALISM & CONSISTENCY:
+            - Maintain the original lighting and neutral background.
+            - Ensure fabric draping, shadows, and scale are realistic for the mannequin's pose.
+            - The output MUST look like the original mannequin wearing the new clothes.
+            - Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
+            - NO hallucinations, NO added people, NO changed environment.
+        `.trim();
 
-        const resultPath = await this.tryOnService.performTryOn(mannequinPath, savedGarment, prompt);
+        const resultPath = await this.tryOnService.performTryOn(mannequinPath, garments, prompt);
 
         return path.basename(resultPath);
     }

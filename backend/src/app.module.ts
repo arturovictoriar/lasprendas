@@ -13,16 +13,10 @@ import { TryOnController } from './infrastructure/controllers/try-on.controller'
 
 @Module({
   imports: [
-    ServeStaticModule.forRoot(
-      {
-        rootPath: join(process.cwd(), 'uploads'),
-        serveRoot: '/uploads',
-      },
-      {
-        rootPath: join(process.cwd(), 'results'),
-        serveRoot: '/results',
-      },
-    ),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'results'),
+      serveRoot: '/results',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '../.env',
