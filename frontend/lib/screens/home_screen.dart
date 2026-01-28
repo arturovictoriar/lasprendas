@@ -99,50 +99,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Maniquí Base o Resultado
-                    _resultPath != null
-                        ? Image.network(
-                            '${ApiService.baseUrl}/results/$_resultPath', 
-                            key: ValueKey(_resultPath), // Force rebuild when path changes
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(child: CircularProgressIndicator(color: Colors.white));
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Error cargando resultado',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  Text(
-                                    '${ApiService.baseUrl}/results/$_resultPath',
-                                    style: TextStyle(color: Colors.white30, fontSize: 10),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              );
-                            },
-                          )
-                        : Image.asset('assets/images/mannequin_anchor.png', fit: BoxFit.contain),
-                    
-                    if (_isLoading)
-                      Container(
-                        color: Colors.black45,
-                        child: const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Maniquí Base o Resultado
+                      _resultPath != null
+                          ? Image.network(
+                              '${ApiService.baseUrl}/results/$_resultPath', 
+                              key: ValueKey(_resultPath), // Force rebuild when path changes
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(child: CircularProgressIndicator(color: Colors.white));
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Error cargando resultado',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                    Text(
+                                      '${ApiService.baseUrl}/results/$_resultPath',
+                                      style: TextStyle(color: Colors.white30, fontSize: 10),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                );
+                              },
+                            )
+                          : Image.asset('assets/images/mannequin_anchor.png', fit: BoxFit.contain),
+                      
+                      if (_isLoading)
+                        Container(
+                          color: Colors.black45,
+                          child: const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
