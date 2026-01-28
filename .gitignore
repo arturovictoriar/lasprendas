@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+build/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.DS_Store
+
+# Environment variables
+.env
+.env.*
+
+# Backend specific
+backend/node_modules/
+backend/dist/
+backend/uploads/
+
+# Frontend specific (though it has its own, it's good practice)
+frontend/build/
+frontend/.dart_tool/
