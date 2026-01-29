@@ -4,6 +4,9 @@ import type { IGarmentRepository } from '../../domain/ports/garment.repository.p
 import { I_TRY_ON_SERVICE } from '../../domain/ports/try-on.service.port';
 import type { ITryOnService } from '../../domain/ports/try-on.service.port';
 import { Garment } from '../../domain/entities/garment.entity';
+import { TryOnSession } from '../../domain/entities/try-on-session.entity';
+import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
+import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
 import * as path from 'path';
 
 @Injectable()
@@ -13,14 +16,19 @@ export class VirtualTryOnUseCase {
         private readonly garmentRepository: IGarmentRepository,
         @Inject(I_TRY_ON_SERVICE)
         private readonly tryOnService: ITryOnService,
+        @Inject(I_TRY_ON_SESSION_REPOSITORY)
+        private readonly sessionRepository: ITryOnSessionRepository,
     ) { }
 
-    async execute(garmentImagePaths: string[], category: string): Promise<string> {
-        // 1. Save garment references in DB
-        const garments = await Promise.all(garmentImagePaths.map(async (path) => {
+    async execute(garmentImagePaths: string[], category: string, garmentIds?: string[]): Promise<string> {
+        // 1. Get/Save garments
+        const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
             const garment = new Garment(null, path, category, new Date());
             return await this.garmentRepository.save(garment);
         }));
+
+        const existingGarments = garmentIds ? await Promise.all(garmentIds.map(id => this.garmentRepository.findById(id))) : [];
+        const garments = [...uploadedGarments, ...existingGarments.filter((g): g is Garment => g !== null)];
 
         // 2. Perform Virtual Try-On
         const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
@@ -46,7 +54,18 @@ export class VirtualTryOnUseCase {
         `.trim();
 
         const resultPath = await this.tryOnService.performTryOn(mannequinPath, garments, prompt);
+        const resultFilename = path.basename(resultPath);
 
-        return path.basename(resultPath);
+        // 3. Save session
+        const session = new TryOnSession(
+            null,
+            'assets/mannequin_anchor.png',
+            resultFilename,
+            garments,
+            new Date()
+        );
+        await this.sessionRepository.save(session);
+
+        return resultFilename;
     }
 }

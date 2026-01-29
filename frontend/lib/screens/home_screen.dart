@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
+import 'closet_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,20 +13,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<File> _selectedImages = [];
+  final List<dynamic> _selectedItems = []; // Can be File or Map (Garment)
   String? _resultPath;
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
-    if (_isLoading || _selectedImages.length >= 4) return;
+    if (_isLoading || _selectedItems.length >= 4) return;
     setState(() => _isLoading = true);
     
     try {
       final XFile? image = await _picker.pickImage(source: source);
       if (image != null) {
         setState(() {
-          _selectedImages.add(File(image.path));
+          _selectedItems.add(File(image.path));
           _resultPath = null;
         });
       }
@@ -33,15 +35,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _openCloset() async {
+    final List<dynamic>? selectedFromCloset = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ClosetScreen()),
+    );
+
+    if (selectedFromCloset != null && selectedFromCloset.isNotEmpty) {
+      setState(() {
+        for (var item in selectedFromCloset) {
+          if (_selectedItems.length < 4) {
+            _selectedItems.add(item);
+          }
+        }
+        _resultPath = null;
+      });
+    }
+  }
+
   Future<void> _tryOn() async {
-    if (_selectedImages.isEmpty) return;
+    if (_selectedItems.isEmpty) return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final result = await ApiService.uploadGarments(_selectedImages, 'clothing');
+      final List<File> files = _selectedItems.whereType<File>().toList();
+      final List<String> garmentIds = _selectedItems
+          .where((item) => item is Map)
+          .map((item) => item['id'] as String)
+          .toList();
+
+      final result = await ApiService.uploadGarments(files, 'clothing', garmentIds: garmentIds);
       setState(() {
         _resultPath = result['resultPath'];
       });
@@ -58,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _removeImage(int index) {
     setState(() {
-      _selectedImages.removeAt(index);
+      _selectedItems.removeAt(index);
     });
   }
 
@@ -72,11 +98,11 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (_selectedImages.isNotEmpty)
+          if (_selectedItems.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.white70),
               onPressed: () => setState(() {
-                _selectedImages.clear();
+                _selectedItems.clear();
                 _resultPath = null;
               }),
             ),
@@ -109,27 +135,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       // Maniquí Base o Resultado
                       _resultPath != null
-                          ? Image.network(
-                              '${ApiService.baseUrl}/results/$_resultPath', 
+                          ? CachedNetworkImage(
+                              imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
                               key: ValueKey(_resultPath), // Force rebuild when path changes
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(child: CircularProgressIndicator(color: Colors.white));
-                              },
-                              errorBuilder: (context, error, stackTrace) {
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              ),
+                              errorWidget: (context, url, error) {
                                 return Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
                                     const SizedBox(height: 10),
-                                    Text(
+                                    const Text(
                                       'Error cargando resultado',
                                       style: TextStyle(color: Colors.white70),
                                     ),
                                     Text(
                                       '${ApiService.baseUrl}/results/$_resultPath',
-                                      style: TextStyle(color: Colors.white30, fontSize: 10),
+                                      style: const TextStyle(color: Colors.white30, fontSize: 10),
                                       textAlign: TextAlign.center,
                                     ),
                                   ],
@@ -152,14 +177,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           
-          if (_selectedImages.isNotEmpty)
+          if (_selectedItems.isNotEmpty)
             SizedBox(
               height: 100,
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
-                itemCount: _selectedImages.length,
+                itemCount: _selectedItems.length,
                 itemBuilder: (context, index) {
+                  final item = _selectedItems[index];
+                  final isFile = item is File;
+                  
                   return Stack(
                     children: [
                       Container(
@@ -167,11 +195,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         margin: const EdgeInsets.only(right: 15),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          image: DecorationImage(
-                            image: FileImage(_selectedImages[index]),
-                            fit: BoxFit.cover,
-                          ),
                           border: Border.all(color: Colors.white24),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: isFile 
+                              ? Image.file(item, fit: BoxFit.cover)
+                              : CachedNetworkImage(
+                                  imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(color: Colors.white10),
+                                ),
                         ),
                       ),
                       Positioned(
@@ -199,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.camera_alt_outlined,
                         label: 'Cámara',
-                        onPressed: _isLoading || _selectedImages.length >= 4 ? null : () => _pickImage(ImageSource.camera),
+                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
                     const SizedBox(width: 15),
@@ -207,7 +241,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
                         label: 'Galería',
-                        onPressed: _isLoading || _selectedImages.length >= 4 ? null : () => _pickImage(ImageSource.gallery),
+                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.gallery),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.checkroom_outlined,
+                        label: 'Mi closet',
+                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : _openCloset,
                       ),
                     ),
                   ],
@@ -217,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: double.infinity,
                   height: 60,
                   child: ElevatedButton(
-                    onPressed: _selectedImages.isNotEmpty && !_isLoading ? _tryOn : null,
+                    onPressed: _selectedItems.isNotEmpty && !_isLoading ? _tryOn : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,
@@ -225,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      _selectedImages.isEmpty ? 'SELECCIONA PRENDAS' : 'VIRTUAL TRY-ON (${_selectedImages.length}/4)',
+                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VIRTUAL TRY-ON (${_selectedItems.length}/4)',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),

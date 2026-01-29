@@ -10,12 +10,19 @@ import { join } from 'path';
 import { GeminiTryOnAdapter } from './infrastructure/adapters/external/gemini-try-on.adapter';
 import { VirtualTryOnUseCase } from './application/use-cases/virtual-try-on.use-case';
 import { TryOnController } from './infrastructure/controllers/try-on.controller';
+import { TryOnSessionSchema } from './infrastructure/adapters/persistence/try-on-session.schema';
+import { TypeOrmTryOnSessionRepository } from './infrastructure/adapters/persistence/typeorm-try-on-session.repository';
+import { I_TRY_ON_SESSION_REPOSITORY } from './domain/ports/try-on-session.repository.port';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'results'),
       serveRoot: '/results',
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
     }),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -31,11 +38,11 @@ import { TryOnController } from './infrastructure/controllers/try-on.controller'
         username: process.env.DATABASE_USER || 'postgres',
         password: process.env.DATABASE_PASSWORD || 'postgres',
         database: process.env.DATABASE_NAME || 'lasprendas',
-        entities: [GarmentSchema],
+        entities: [GarmentSchema, TryOnSessionSchema],
         synchronize: true, // true for dev, use migrations for prod
       }),
     }),
-    TypeOrmModule.forFeature([GarmentSchema]),
+    TypeOrmModule.forFeature([GarmentSchema, TryOnSessionSchema]),
   ],
   controllers: [TryOnController],
   providers: [
@@ -47,6 +54,10 @@ import { TryOnController } from './infrastructure/controllers/try-on.controller'
     {
       provide: I_TRY_ON_SERVICE,
       useClass: GeminiTryOnAdapter,
+    },
+    {
+      provide: I_TRY_ON_SESSION_REPOSITORY,
+      useClass: TypeOrmTryOnSessionRepository,
     },
   ],
 })
