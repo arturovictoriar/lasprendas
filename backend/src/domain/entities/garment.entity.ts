@@ -4,5 +4,6 @@ export class Garment {
         public readonly originalUrl: string,
         public readonly category: string,
         public readonly createdAt: Date,
+        public readonly deletedAt: Date | null = null
     ) { }
 }

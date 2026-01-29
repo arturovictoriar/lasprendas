@@ -19,6 +19,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   final List<String> _categories = ['Todas', 'Camisas', 'Pantalones', 'Zapatos', 'Faldas', 'Chaquetas', 'Accesorios'];
   
   final List<dynamic> _selectedInSession = [];
+  String? _garmentIdInDeleteMode;
 
   @override
   void initState() {
@@ -69,6 +70,41 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     });
   }
 
+  Future<void> _deleteGarment(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('¿Eliminar prenda?', style: TextStyle(color: Colors.white)),
+        content: const Text('Esta acción quitará la prenda de tu closet.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCELAR', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ELIMINAR', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ApiService.deleteGarment(id);
+        setState(() {
+          _garments.removeWhere((g) => g['id'] == id);
+          _selectedInSession.removeWhere((g) => g['id'] == id);
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,7 +117,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           controller: _tabController,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: 'MI ROPA'),
+            Tab(text: 'MIS PRENDAS'),
             Tab(text: 'MIS OUTFITS'),
           ],
         ),
@@ -142,9 +178,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             itemBuilder: (context, index) {
               final garment = _filteredGarments[index];
               final isSelected = _selectedInSession.any((g) => g['id'] == garment['id']);
+              final isInDeleteMode = _garmentIdInDeleteMode == garment['id'];
               
               return GestureDetector(
-                onTap: () => _toggleSelection(garment),
+                onTap: () {
+                  if (_garmentIdInDeleteMode != null) {
+                    setState(() => _garmentIdInDeleteMode = null);
+                  } else {
+                    _toggleSelection(garment);
+                  }
+                },
+                onLongPress: () {
+                  setState(() => _garmentIdInDeleteMode = garment['id']);
+                },
                 child: Stack(
                   children: [
                     Container(
@@ -173,6 +219,28 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           padding: const EdgeInsets.all(2),
                           decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                           child: const Icon(Icons.check, size: 16, color: Colors.black),
+                        ),
+                      ),
+                    if (isInDeleteMode)
+                      Positioned(
+                        left: 5,
+                        top: 5,
+                        child: GestureDetector(
+                          onTap: () {
+                            _deleteGarment(garment['id']);
+                            setState(() => _garmentIdInDeleteMode = null);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                              ],
+                            ),
+                            child: const Icon(Icons.delete, size: 20, color: Colors.white),
+                          ),
                         ),
                       ),
                   ],

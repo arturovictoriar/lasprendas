@@ -1,9 +1,8 @@
-import { Controller, Post, UploadedFiles, UseInterceptors, Body } from '@nestjs/common';
+import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Get, Inject } from '@nestjs/common';
 import { I_GARMENT_REPOSITORY } from '../../domain/ports/garment.repository.port';
 import type { IGarmentRepository } from '../../domain/ports/garment.repository.port';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
@@ -27,6 +26,12 @@ export class TryOnController {
     @Get('garments')
     async getGarments() {
         return await this.garmentRepository.findAll();
+    }
+
+    @Delete('garments/:id')
+    async deleteGarment(@Param('id') id: string) {
+        await this.garmentRepository.delete(id);
+        return { success: true };
     }
 
     @Post()

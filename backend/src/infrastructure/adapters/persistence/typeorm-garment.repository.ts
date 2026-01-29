@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { IGarmentRepository } from '../../../domain/ports/garment.repository.port';
 import { Garment } from '../../../domain/entities/garment.entity';
 import { GarmentSchema } from './garment.schema';
@@ -18,17 +18,28 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
         schema.category = garment.category;
 
         const saved = await this.repository.save(schema);
-        return new Garment(saved.id, saved.originalUrl, saved.category, saved.createdAt);
+        return this.mapToEntity(saved);
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.repository.update(id, { deletedAt: new Date() });
+    }
+
+    private mapToEntity(schema: GarmentSchema): Garment {
+        return new Garment(schema.id, schema.originalUrl, schema.category, schema.createdAt, schema.deletedAt);
     }
 
     async findById(id: string): Promise<Garment | null> {
         const found = await this.repository.findOneBy({ id });
         if (!found) return null;
-        return new Garment(found.id, found.originalUrl, found.category, found.createdAt);
+        return this.mapToEntity(found);
     }
 
     async findAll(): Promise<Garment[]> {
-        const list = await this.repository.find();
-        return list.map(item => new Garment(item.id, item.originalUrl, item.category, item.createdAt));
+        const garments = await this.repository.find({
+            where: { deletedAt: IsNull() },
+            order: { createdAt: 'DESC' }
+        });
+        return garments.map(g => this.mapToEntity(g));
     }
 }
