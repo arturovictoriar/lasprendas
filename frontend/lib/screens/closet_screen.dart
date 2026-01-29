@@ -3,8 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 
 class ClosetScreen extends StatefulWidget {
-  final List<String> alreadySelected;
-  const ClosetScreen({super.key, this.alreadySelected = const []});
+  final int initialCount;
+  const ClosetScreen({super.key, this.initialCount = 0});
 
   @override
   State<ClosetScreen> createState() => _ClosetScreenState();
@@ -59,11 +59,11 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       if (index >= 0) {
         _selectedInSession.removeAt(index);
       } else {
-        if (_selectedInSession.length < 4) {
+        if (_selectedInSession.length + widget.initialCount < 4) {
           _selectedInSession.add(garment);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Máximo 4 prendas')),
+            SnackBar(content: Text('Ya tienes ${widget.initialCount + _selectedInSession.length} prendas. El máximo es 4.')),
           );
         }
       }

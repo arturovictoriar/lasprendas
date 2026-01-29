@@ -38,7 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openCloset() async {
     final List<dynamic>? selectedFromCloset = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ClosetScreen()),
+      MaterialPageRoute(builder: (context) => ClosetScreen(initialCount: _selectedItems.length)),
     );
 
     if (selectedFromCloset != null && selectedFromCloset.isNotEmpty) {
@@ -85,6 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _removeImage(int index) {
     setState(() {
       _selectedItems.removeAt(index);
+      if (_selectedItems.isEmpty) {
+        _resultPath = null;
+      }
     });
   }
 
@@ -249,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
                         label: 'Mi closet',
-                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : _openCloset,
+                        onPressed: _isLoading ? null : _openCloset,
                       ),
                     ),
                   ],
