@@ -27,8 +27,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
-    // Initialize with already selected items if we wanted to show them, 
-    // but for now let's just allow fresh selection.
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -241,6 +245,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                         child: CachedNetworkImage(
                           imageUrl: '${ApiService.baseUrl}/${garment['originalUrl']}',
                           fit: BoxFit.cover,
+                          memCacheWidth: 200, // Small thumbnail size
                           placeholder: (context, url) => Container(color: Colors.white10),
                           errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
                         ),
@@ -338,6 +343,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           width: double.infinity,
                           height: 300,
                           fit: BoxFit.cover,
+                          memCacheHeight: 600, // Medium size for outfit preview
                           placeholder: (context, url) => Container(
                             height: 300,
                             color: Colors.white10,
@@ -380,6 +386,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                                   child: CachedNetworkImage(
                                     imageUrl: '${ApiService.baseUrl}/${g['originalUrl']}',
                                     fit: BoxFit.cover,
+                                    memCacheWidth: 100, // Very small thumbnail
                                     placeholder: (context, url) => Container(color: Colors.white10),
                                     errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
                                   ),

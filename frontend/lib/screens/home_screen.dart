@@ -142,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
                               key: ValueKey(_resultPath), // Force rebuild when path changes
                               fit: BoxFit.contain,
+                              memCacheHeight: 1200, // Reasonable limit for result preview
                               placeholder: (context, url) => const Center(
                                 child: CircularProgressIndicator(color: Colors.white),
                               ),
@@ -203,10 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: isFile 
-                              ? Image.file(item, fit: BoxFit.cover)
+                              ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
                               : CachedNetworkImage(
                                   imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
                                   fit: BoxFit.cover,
+                                  memCacheWidth: 200, // Small selection thumbnail
                                   placeholder: (context, url) => Container(color: Colors.white10),
                                 ),
                         ),

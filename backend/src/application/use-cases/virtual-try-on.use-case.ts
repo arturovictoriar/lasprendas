@@ -43,7 +43,7 @@ Do NOT change its pose, face (no face), skin color (gray), body shape, underwear
 
 TRANSFER TASK:
 Analyze the clothing items in the additional images (Images 2, 3, etc.).
-Remove ALL copyrighted or branded content from the images.
+Remove DISNEY copyrighted or branded content from the images.
 Fit ALL these items onto the mannequin from Image 1 simultaneously.
 - Tops/Shirts go to the torso.
 - Bottoms/Pants go to the legs.
