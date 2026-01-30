@@ -37,28 +37,24 @@ export class VirtualTryOnUseCase {
         // 2. Perform Virtual Try-On
         const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
 
-        const prompt = `
-            STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
-            The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
-            Do NOT change its pose, face, skin color (gray), body shape, or background.
-            
-            TRANSFER TASK:
-            Analyze the clothing items in the additional images (Images 2, 3, etc.).
-            Fit ALL these items onto the mannequin from Image 1 simultaneously.
-            - Tops/Shirts go to the torso.
-            - Bottoms/Pants go to the legs.
-            - Accessories go to their respective natural positions.
+        const prompt = `STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
+The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
+Do NOT change its pose, face (no face), skin color (gray), body shape, underwear or background.
 
-            Ignore and DO NOT reproduce:
-            - Any copyrighted or branded content
-            
-            REALISM & CONSISTENCY:
-            - Maintain the original lighting and neutral background.
-            - Ensure fabric draping, shadows, and scale are realistic for the mannequin's pose.
-            - The output MUST look like the original mannequin wearing the new clothes.
-            - Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
-            - NO hallucinations, NO added people, NO changed environment.
-        `.trim();
+TRANSFER TASK:
+Analyze the clothing items in the additional images (Images 2, 3, etc.).
+Remove ALL copyrighted or branded content from the images.
+Fit ALL these items onto the mannequin from Image 1 simultaneously.
+- Tops/Shirts go to the torso.
+- Bottoms/Pants go to the legs.
+- Accessories go to their respective natural positions.
+
+REALISM & CONSISTENCY:
+- Maintain the original lighting and neutral background.
+- Ensure fabric draping, shadows, and scale are realistic for the mannequin's pose.
+- The output MUST look like the original mannequin wearing the new clothes.
+- Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
+- NO hallucinations, NO added people, NO changed environment.`.trim();
 
         const resultPath = await this.tryOnService.performTryOn(mannequinPath, garments, prompt);
         const resultFilename = path.basename(resultPath);
