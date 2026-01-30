@@ -20,6 +20,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   
   final List<dynamic> _selectedInSession = [];
   String? _garmentIdInDeleteMode;
+  String? _sessionIdInDeleteMode;
 
   @override
   void initState() {
@@ -96,6 +97,40 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         setState(() {
           _garments.removeWhere((g) => g['id'] == id);
           _selectedInSession.removeWhere((g) => g['id'] == id);
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSession(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('¿Eliminar outfit?', style: TextStyle(color: Colors.white)),
+        content: const Text('Esta acción quitará el outfit de tu colección.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCELAR', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ELIMINAR', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ApiService.deleteSession(id);
+        setState(() {
+          _sessions.removeWhere((s) => s['id'] == id);
         });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -262,87 +297,124 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       itemCount: _sessions.length,
       itemBuilder: (context, index) {
         final session = _sessions[index];
+        final isInDeleteMode = _sessionIdInDeleteMode == session['id'];
+
         return Container(
           margin: const EdgeInsets.only(bottom: 20),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OutfitDetailScreen(
-                      imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (_sessionIdInDeleteMode != null) {
+                        setState(() => _sessionIdInDeleteMode = null);
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OutfitDetailScreen(
+                              imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
+                              tag: 'outfit-${session['id']}',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    onLongPress: () {
+                      setState(() => _sessionIdInDeleteMode = session['id']);
+                    },
+                    child: Hero(
                       tag: 'outfit-${session['id']}',
-                    ),
-                  ),
-                ),
-                child: Hero(
-                  tag: 'outfit-${session['id']}',
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: CachedNetworkImage(
-                      imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
-                      width: double.infinity,
-                      height: 300,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        height: 300,
-                        color: Colors.white10,
-                        child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        height: 300,
-                        color: Colors.white10,
-                        child: const Icon(Icons.broken_image, color: Colors.white24, size: 50),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: CachedNetworkImage(
+                          imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
+                          width: double.infinity,
+                          height: 300,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            height: 300,
+                            color: Colors.white10,
+                            child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            height: 300,
+                            color: Colors.white10,
+                            child: const Icon(Icons.broken_image, color: Colors.white24, size: 50),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Outfit ${session['createdAt'].toString().substring(0, 10)}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Outfit ${session['createdAt'].toString().substring(0, 10)}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 50,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: (session['garments'] as List).length,
+                            itemBuilder: (context, gIndex) {
+                              final g = session['garments'][gIndex];
+                              return Container(
+                                width: 50,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: CachedNetworkImage(
+                                    imageUrl: '${ApiService.baseUrl}/${g['originalUrl']}',
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(color: Colors.white10),
+                                    errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 50,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: (session['garments'] as List).length,
-                        itemBuilder: (context, gIndex) {
-                          final g = session['garments'][gIndex];
-                          return Container(
-                            width: 50,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: CachedNetworkImage(
-                                imageUrl: '${ApiService.baseUrl}/${g['originalUrl']}',
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(color: Colors.white10),
-                                errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
-                              ),
-                            ),
-                          );
-                        },
+                  ),
+                ],
+              ),
+              if (isInDeleteMode)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: GestureDetector(
+                    onTap: () {
+                      _deleteSession(session['id']);
+                      setState(() => _sessionIdInDeleteMode = null);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                        ],
                       ),
+                      child: const Icon(Icons.delete, color: Colors.white, size: 24),
                     ),
-                  ],
+                  ),
                 ),
-              ),
             ],
           ),
         );

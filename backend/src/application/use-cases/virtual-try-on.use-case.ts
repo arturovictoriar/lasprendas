@@ -30,6 +30,10 @@ export class VirtualTryOnUseCase {
         const existingGarments = garmentIds ? await Promise.all(garmentIds.map(id => this.garmentRepository.findById(id))) : [];
         const garments = [...uploadedGarments, ...existingGarments.filter((g): g is Garment => g !== null)];
 
+        if (garments.length === 0) {
+            throw new Error('No garments provided for try-on');
+        }
+
         // 2. Perform Virtual Try-On
         const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
 
@@ -44,6 +48,9 @@ export class VirtualTryOnUseCase {
             - Tops/Shirts go to the torso.
             - Bottoms/Pants go to the legs.
             - Accessories go to their respective natural positions.
+
+            Ignore and DO NOT reproduce:
+            - Any copyrighted or branded content
             
             REALISM & CONSISTENCY:
             - Maintain the original lighting and neutral background.

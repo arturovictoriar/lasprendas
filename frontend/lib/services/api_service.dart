@@ -54,6 +54,13 @@ class ApiService {
     }
   }
 
+  static Future<void> deleteSession(String id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/try-on/sessions/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete outfit');
+    }
+  }
+
   static Future<List<dynamic>> getGarments() async {
     final response = await http.get(Uri.parse('$baseUrl/try-on/garments'));
     if (response.statusCode == 200) {

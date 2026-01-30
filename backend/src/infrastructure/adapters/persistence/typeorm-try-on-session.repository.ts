@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { ITryOnSessionRepository } from '../../../domain/ports/try-on-session.repository.port';
 import { TryOnSession } from '../../../domain/entities/try-on-session.entity';
 import { TryOnSessionSchema } from './try-on-session.schema';
@@ -31,6 +31,10 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         return this.mapToEntity(saved);
     }
 
+    async delete(id: string): Promise<void> {
+        await this.repository.update(id, { deletedAt: new Date() });
+    }
+
     async findById(id: string): Promise<TryOnSession | null> {
         const found = await this.repository.findOne({
             where: { id },
@@ -42,6 +46,7 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
 
     async findAll(): Promise<TryOnSession[]> {
         const list = await this.repository.find({
+            where: { deletedAt: IsNull() },
             relations: ['garments'],
             order: { createdAt: 'DESC' }
         });
@@ -53,8 +58,9 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
             schema.id,
             schema.mannequinUrl,
             schema.resultUrl,
-            (schema.garments || []).map(g => new Garment(g.id, g.originalUrl, g.category, g.createdAt)),
-            schema.createdAt
+            (schema.garments || []).map(g => new Garment(g.id, g.originalUrl, g.category, g.createdAt, g.deletedAt)),
+            schema.createdAt,
+            schema.deletedAt
         );
     }
 }

@@ -22,4 +22,7 @@ export class TryOnSessionSchema {
 
     @CreateDateColumn()
     createdAt: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    deletedAt: Date | null;
 }

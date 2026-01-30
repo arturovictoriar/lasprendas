@@ -1,4 +1,4 @@
-import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param } from '@nestjs/common';
+import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
 import { diskStorage } from 'multer';
@@ -34,6 +34,12 @@ export class TryOnController {
         return { success: true };
     }
 
+    @Delete('sessions/:id')
+    async deleteSession(@Param('id') id: string) {
+        await this.sessionRepository.delete(id);
+        return { success: true };
+    }
+
     @Post()
     @UseInterceptors(FilesInterceptor('images', 4, {
         storage: diskStorage({
@@ -52,11 +58,18 @@ export class TryOnController {
         const filePaths = files ? files.map(f => f.path) : [];
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
 
-        const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids);
-        return {
-            success: true,
-            resultPath: resultPath,
-            originalPaths: filePaths
-        };
+        try {
+            const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids);
+            return {
+                success: true,
+                resultPath: resultPath,
+                originalPaths: filePaths
+            };
+        } catch (error) {
+            if ((error as Error).message === 'No garments provided for try-on') {
+                throw new BadRequestException((error as Error).message);
+            }
+            throw error;
+        }
     }
 }

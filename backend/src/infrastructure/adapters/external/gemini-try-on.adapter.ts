@@ -62,6 +62,7 @@ export class GeminiTryOnAdapter implements ITryOnService {
         } else {
             // If no image returned, copy mannequin as fallback
             console.error('Gemini did not return an image part. Falling back to mannequin.');
+            console.log('Full Gemini response:', JSON.stringify(response, null, 2));
             fs.copyFileSync(mannequinPath, resultPath);
         }
 
