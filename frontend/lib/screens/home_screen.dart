@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<dynamic> _selectedItems = []; // Can be File or Map (Garment)
   String? _resultPath;
   bool _isLoading = false;
+  String _personType = 'female'; // 'female' or 'male'
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
@@ -70,11 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _resultPath = null;
         });
         
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Imagen pegada con éxito')),
-          );
-        }
+        // Success: Don't show SnackBar as requested
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((item) => item['id'] as String)
           .toList();
 
-      final result = await ApiService.uploadGarments(files, 'clothing', garmentIds: garmentIds);
+      final result = await ApiService.uploadGarments(
+        files, 
+        'clothing', 
+        garmentIds: garmentIds,
+        personType: _personType,
+      );
       setState(() {
         _resultPath = result['resultPath'];
       });
@@ -171,19 +173,58 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
+        leadingWidth: 80,
+        leading: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () => setState(() {
+                _personType = 'female';
+                _resultPath = null;
+              }),
+              child: Icon(
+                Icons.woman,
+                color: _personType == 'female' ? Colors.white : Colors.white24,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => setState(() {
+                _personType = 'male';
+                _resultPath = null;
+              }),
+              child: Icon(
+                Icons.man,
+                color: _personType == 'male' ? Colors.white : Colors.white24,
+                size: 26,
+              ),
+            ),
+          ],
+        ),
         title: const Text('LAS PRENDAS', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (_selectedItems.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white70),
-              onPressed: () => setState(() {
-                _selectedItems.clear();
-                _resultPath = null;
-              }),
+          SizedBox(
+            width: 80,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (_selectedItems.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white70),
+                    onPressed: () => setState(() {
+                      _selectedItems.clear();
+                      _resultPath = null;
+                    }),
+                  ),
+                const SizedBox(width: 8),
+              ],
             ),
+          ),
         ],
       ),
       body: Column(
@@ -240,7 +281,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 );
                               },
                             )
-                          : Image.asset('assets/images/mannequin_anchor.png', fit: BoxFit.contain),
+                          : Image.asset(
+                              _personType == 'female' 
+                                ? 'assets/images/female_mannequin_anchor.png' 
+                                : 'assets/images/male_mannequin_anchor.png', 
+                              fit: BoxFit.contain
+                            ),
                       
                       if (_isLoading)
                         Container(
@@ -255,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          
+
           if (_selectedItems.isNotEmpty)
             SizedBox(
               height: 100,

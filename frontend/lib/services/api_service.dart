@@ -7,11 +7,12 @@ class ApiService {
   // Use 192.168.10.11 for physical devices on your Mac's network
   static const String baseUrl = 'http://192.168.10.13:3000'; 
   
-  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds}) async {
+  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female'}) async {
     final url = Uri.parse('$baseUrl/try-on');
     final request = http.MultipartRequest('POST', url);
     
     request.fields['category'] = category;
+    request.fields['personType'] = personType;
     if (garmentIds != null) {
       for (var i = 0; i < garmentIds.length; i++) {
         request.fields['garmentIds[$i]'] = garmentIds[i];

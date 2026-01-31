@@ -53,13 +53,14 @@ export class TryOnController {
     async uploadGarment(
         @UploadedFiles() files: Express.Multer.File[],
         @Body('category') category: string,
-        @Body('garmentIds') garmentIds?: string | string[]
+        @Body('garmentIds') garmentIds?: string | string[],
+        @Body('personType') personType?: string
     ) {
         const filePaths = files ? files.map(f => f.path) : [];
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
 
         try {
-            const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids);
+            const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids, personType || 'female');
             return {
                 success: true,
                 resultPath: resultPath,

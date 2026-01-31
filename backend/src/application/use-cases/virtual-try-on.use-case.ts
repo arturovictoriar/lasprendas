@@ -22,7 +22,7 @@ export class VirtualTryOnUseCase {
         private readonly imageProcessorService: ImageProcessorService,
     ) { }
 
-    async execute(garmentImagePaths: string[], category: string, garmentIds?: string[]): Promise<string> {
+    async execute(garmentImagePaths: string[], category: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
         // 1. Get/Save garments
         const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
             const garment = new Garment(null, path, category, new Date());
@@ -46,7 +46,8 @@ export class VirtualTryOnUseCase {
         }));
 
         // 3. Perform Virtual Try-On
-        const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
+        const anchorImage = personType === 'male' ? 'male_mannequin_anchor.png' : 'female_mannequin_anchor.png';
+        const mannequinPath = path.join(process.cwd(), 'assets', anchorImage);
 
         const prompt = `STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
 The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
@@ -70,10 +71,10 @@ REALISM & CONSISTENCY:
         const resultPath = await this.tryOnService.performTryOn(mannequinPath, normalizedGarments, prompt);
         const resultFilename = path.basename(resultPath);
 
-        // 3. Save session
+        // 4. Save session
         const session = new TryOnSession(
             null,
-            'assets/mannequin_anchor.png',
+            `assets/${anchorImage}`,
             resultFilename,
             garments,
             new Date()
