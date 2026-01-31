@@ -46,16 +46,18 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     try {
       final garments = await ApiService.getGarments();
       final sessions = await ApiService.getSessions();
+      if (!mounted) return;
       setState(() {
         _garments = garments;
         _sessions = sessions;
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error cargando closet: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

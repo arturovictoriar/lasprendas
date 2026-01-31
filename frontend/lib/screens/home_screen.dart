@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:pasteboard/pasteboard.dart';
 import '../services/api_service.dart';
 import 'closet_screen.dart';
 
@@ -32,6 +35,46 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handlePasteImage() async {
+    if (_isLoading || _selectedItems.length >= 4) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      final imageBytes = await Pasteboard.image;
+      if (imageBytes != null) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png';
+        final file = File(p.join(tempDir.path, fileName));
+        await file.writeAsBytes(imageBytes);
+        
+        setState(() {
+          _selectedItems.add(file);
+          _resultPath = null;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Imagen pegada con éxito')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No hay ninguna imagen en el portapapeles')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al pegar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -246,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
-                    const SizedBox(width: 15),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
@@ -254,11 +297,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.gallery),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.content_paste_outlined,
+                        label: 'PEGAR',
+                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : _handlePasteImage,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
-                        label: 'Mi closet',
+                        label: 'Closet',
                         onPressed: _isLoading || _selectedItems.whereType<File>().length >= 4 ? null : _openCloset,
                       ),
                     ),
@@ -304,14 +355,28 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
+    return OutlinedButton(
       onPressed: onPressed,
-      icon: Icon(icon, color: onPressed == null ? Colors.white24 : Colors.white70),
-      label: Text(label, style: TextStyle(color: onPressed == null ? Colors.white24 : Colors.white)),
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         side: BorderSide(color: onPressed == null ? Colors.white10 : Colors.white24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: onPressed == null ? Colors.white24 : Colors.white70, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            label, 
+            style: TextStyle(
+              color: onPressed == null ? Colors.white24 : Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
