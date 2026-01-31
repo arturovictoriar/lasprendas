@@ -3,8 +3,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 
 class ClosetScreen extends StatefulWidget {
-  final int initialCount;
-  const ClosetScreen({super.key, this.initialCount = 0});
+  final List<dynamic> initialSelectedGarments;
+  final int externalCount;
+  
+  const ClosetScreen({
+    super.key, 
+    this.initialSelectedGarments = const [],
+    this.externalCount = 0,
+  });
 
   @override
   State<ClosetScreen> createState() => _ClosetScreenState();
@@ -19,13 +25,13 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   final List<String> _categories = ['Todas', 'Camisas', 'Pantalones', 'Zapatos', 'Faldas', 'Chaquetas', 'Accesorios'];
   
   final List<dynamic> _selectedInSession = [];
-  String? _garmentIdInDeleteMode;
-  String? _sessionIdInDeleteMode;
+  bool _isEditMode = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _selectedInSession.addAll(widget.initialSelectedGarments);
     _loadData();
   }
 
@@ -55,20 +61,26 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   List<dynamic> get _filteredGarments {
     if (_selectedCategory == 'Todas') return _garments;
-    return _garments.where((g) => g['category'].toString().toLowerCase() == _selectedCategory.toLowerCase()).toList();
+    return _garments.where((g) {
+      final cat = g['category']?.toString().toLowerCase();
+      return cat == _selectedCategory.toLowerCase();
+    }).toList();
   }
 
   void _toggleSelection(dynamic garment) {
     setState(() {
-      final index = _selectedInSession.indexWhere((g) => g['id'] == garment['id']);
+      final index = _selectedInSession.indexWhere((g) => g['id'].toString() == garment['id'].toString());
       if (index >= 0) {
         _selectedInSession.removeAt(index);
       } else {
-        if (_selectedInSession.length + widget.initialCount < 4) {
+        if (_selectedInSession.length + widget.externalCount < 4) {
           _selectedInSession.add(garment);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ya tienes ${widget.initialCount + _selectedInSession.length} prendas. El máximo es 4.')),
+            SnackBar(
+              content: Text('Ya tienes ${widget.externalCount + _selectedInSession.length} prendas. El máximo es 4.'),
+              duration: const Duration(seconds: 2),
+            ),
           );
         }
       }
@@ -99,8 +111,8 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       try {
         await ApiService.deleteGarment(id);
         setState(() {
-          _garments.removeWhere((g) => g['id'] == id);
-          _selectedInSession.removeWhere((g) => g['id'] == id);
+          _garments.removeWhere((g) => g['id'].toString() == id.toString());
+          _selectedInSession.removeWhere((g) => g['id'].toString() == id.toString());
         });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -134,7 +146,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       try {
         await ApiService.deleteSession(id);
         setState(() {
-          _sessions.removeWhere((s) => s['id'] == id);
+          _sessions.removeWhere((s) => s['id'].toString() == id.toString());
         });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,10 +158,14 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final totalCount = _selectedInSession.length + widget.externalCount;
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('MI CLOSET', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+        title: Text(
+          'CLOSET ($totalCount/4)', 
+          style: const TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         bottom: TabBar(
@@ -161,17 +177,33 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           ],
         ),
         actions: [
-          if (_selectedInSession.isNotEmpty)
-            TextButton(
-              onPressed: () => Navigator.pop(context, _selectedInSession),
-              child: const Text('USAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          IconButton(
+            icon: Icon(
+              _isEditMode ? Icons.edit_off : Icons.delete_outline,
+              color: _isEditMode ? Colors.redAccent : Colors.white70,
             ),
+            onPressed: () => setState(() => _isEditMode = !_isEditMode),
+            tooltip: _isEditMode ? 'Salir de edición' : 'Editar colección',
+          ),
+          TextButton(
+            onPressed: _selectedInSession.isEmpty 
+              ? null 
+              : () => Navigator.pop(context, _selectedInSession),
+            child: Text(
+              'USAR', 
+              style: TextStyle(
+                color: _selectedInSession.isEmpty ? Colors.white24 : Colors.white, 
+                fontWeight: FontWeight.bold
+              )
+            ),
+          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : TabBarView(
               controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildLibraryTab(),
                 _buildOutfitsTab(),
@@ -186,6 +218,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: _categories.map((cat) {
@@ -216,19 +249,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             itemCount: _filteredGarments.length,
             itemBuilder: (context, index) {
               final garment = _filteredGarments[index];
-              final isSelected = _selectedInSession.any((g) => g['id'] == garment['id']);
-              final isInDeleteMode = _garmentIdInDeleteMode == garment['id'];
+              final isSelected = _selectedInSession.any((g) => g['id'].toString() == garment['id'].toString());
               
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  if (_garmentIdInDeleteMode != null) {
-                    setState(() => _garmentIdInDeleteMode = null);
+                  if (_isEditMode) {
+                    _deleteGarment(garment['id']);
                   } else {
                     _toggleSelection(garment);
                   }
-                },
-                onLongPress: () {
-                  setState(() => _garmentIdInDeleteMode = garment['id']);
                 },
                 child: Stack(
                   children: [
@@ -251,7 +281,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                         ),
                       ),
                     ),
-                    if (isSelected)
+                    if (isSelected && !_isEditMode)
                       Positioned(
                         right: 5,
                         top: 5,
@@ -261,26 +291,20 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           child: const Icon(Icons.check, size: 16, color: Colors.black),
                         ),
                       ),
-                    if (isInDeleteMode)
+                    if (_isEditMode)
                       Positioned(
                         left: 5,
                         top: 5,
-                        child: GestureDetector(
-                          onTap: () {
-                            _deleteGarment(garment['id']);
-                            setState(() => _garmentIdInDeleteMode = null);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withOpacity(0.9),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
-                              ],
-                            ),
-                            child: const Icon(Icons.delete, size: 20, color: Colors.white),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                            ],
                           ),
+                          child: const Icon(Icons.delete, size: 20, color: Colors.white),
                         ),
                       ),
                   ],
@@ -302,7 +326,6 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       itemCount: _sessions.length,
       itemBuilder: (context, index) {
         final session = _sessions[index];
-        final isInDeleteMode = _sessionIdInDeleteMode == session['id'];
 
         return Container(
           margin: const EdgeInsets.only(bottom: 20),
@@ -316,9 +339,10 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      if (_sessionIdInDeleteMode != null) {
-                        setState(() => _sessionIdInDeleteMode = null);
+                      if (_isEditMode) {
+                        _deleteSession(session['id']);
                       } else {
                         Navigator.push(
                           context,
@@ -330,9 +354,6 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           ),
                         );
                       }
-                    },
-                    onLongPress: () {
-                      setState(() => _sessionIdInDeleteMode = session['id']);
                     },
                     child: Hero(
                       tag: 'outfit-${session['id']}',
@@ -372,6 +393,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           height: 50,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
+                            physics: const ClampingScrollPhysics(), // Reduce conflict with tab swiping
                             itemCount: (session['garments'] as List).length,
                             itemBuilder: (context, gIndex) {
                               final g = session['garments'][gIndex];
@@ -400,26 +422,20 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                   ),
                 ],
               ),
-              if (isInDeleteMode)
+              if (_isEditMode)
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: GestureDetector(
-                    onTap: () {
-                      _deleteSession(session['id']);
-                      setState(() => _sessionIdInDeleteMode = null);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
-                        ],
-                      ),
-                      child: const Icon(Icons.delete, color: Colors.white, size: 24),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                      ],
                     ),
+                    child: const Icon(Icons.delete, color: Colors.white, size: 24),
                   ),
                 ),
             ],
@@ -443,15 +459,19 @@ class OutfitDetailScreen extends StatelessWidget {
       body: Stack(
         children: [
           Center(
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: Hero(
-                tag: tag,
+            child: Hero(
+              tag: tag,
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
-                  placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white24),
+                  memCacheHeight: 1200, // Optimized for detail view
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white24)
+                  ),
+                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white24),
                 ),
               ),
             ),

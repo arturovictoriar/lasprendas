@@ -36,18 +36,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openCloset() async {
+    final List<File> files = _selectedItems.whereType<File>().toList();
+    final List<dynamic> garments = _selectedItems.where((item) => item is Map).toList();
+
     final List<dynamic>? selectedFromCloset = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ClosetScreen(initialCount: _selectedItems.length)),
+      MaterialPageRoute(
+        builder: (context) => ClosetScreen(
+          initialSelectedGarments: garments,
+          externalCount: files.length,
+        ),
+      ),
     );
 
-    if (selectedFromCloset != null && selectedFromCloset.isNotEmpty) {
+    if (selectedFromCloset != null) {
       setState(() {
-        for (var item in selectedFromCloset) {
-          if (_selectedItems.length < 4) {
-            _selectedItems.add(item);
-          }
-        }
+        _selectedItems.removeWhere((item) => item is Map);
+        _selectedItems.addAll(selectedFromCloset);
         _resultPath = null;
       });
     }
@@ -254,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
                         label: 'Mi closet',
-                        onPressed: _isLoading ? null : _openCloset,
+                        onPressed: _isLoading || _selectedItems.whereType<File>().length >= 4 ? null : _openCloset,
                       ),
                     ),
                   ],

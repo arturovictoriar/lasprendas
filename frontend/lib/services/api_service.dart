@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 
 class ApiService {
   // Use 192.168.10.11 for physical devices on your Mac's network
-  static const String baseUrl = 'http://192.168.10.11:3000'; 
+  static const String baseUrl = 'http://192.168.10.13:3000'; 
   
   static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds}) async {
     final url = Uri.parse('$baseUrl/try-on');
