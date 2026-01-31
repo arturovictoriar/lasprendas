@@ -13,6 +13,7 @@ import { TryOnController } from './infrastructure/controllers/try-on.controller'
 import { TryOnSessionSchema } from './infrastructure/adapters/persistence/try-on-session.schema';
 import { TypeOrmTryOnSessionRepository } from './infrastructure/adapters/persistence/typeorm-try-on-session.repository';
 import { I_TRY_ON_SESSION_REPOSITORY } from './domain/ports/try-on-session.repository.port';
+import { ImageProcessorService } from './application/services/image-processor.service';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { I_TRY_ON_SESSION_REPOSITORY } from './domain/ports/try-on-session.repos
       provide: I_TRY_ON_SESSION_REPOSITORY,
       useClass: TypeOrmTryOnSessionRepository,
     },
+    ImageProcessorService,
   ],
 })
 export class AppModule { }

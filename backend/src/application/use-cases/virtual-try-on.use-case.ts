@@ -8,6 +8,7 @@ import { TryOnSession } from '../../domain/entities/try-on-session.entity';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
 import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
 import * as path from 'path';
+import { ImageProcessorService } from '../services/image-processor.service';
 
 @Injectable()
 export class VirtualTryOnUseCase {
@@ -18,6 +19,7 @@ export class VirtualTryOnUseCase {
         private readonly tryOnService: ITryOnService,
         @Inject(I_TRY_ON_SESSION_REPOSITORY)
         private readonly sessionRepository: ITryOnSessionRepository,
+        private readonly imageProcessorService: ImageProcessorService,
     ) { }
 
     async execute(garmentImagePaths: string[], category: string, garmentIds?: string[]): Promise<string> {
@@ -34,7 +36,16 @@ export class VirtualTryOnUseCase {
             throw new Error('No garments provided for try-on');
         }
 
-        // 2. Perform Virtual Try-On
+        // 2. Normalize garment images to match mannequin aspect ratio
+        const normalizedGarments = await Promise.all(garments.map(async (garment) => {
+            const normalizedPath = await this.imageProcessorService.normalizeForTryOn(garment.originalUrl);
+            return {
+                ...garment,
+                originalUrl: normalizedPath
+            } as Garment;
+        }));
+
+        // 3. Perform Virtual Try-On
         const mannequinPath = path.join(process.cwd(), 'assets', 'mannequin_anchor.png');
 
         const prompt = `STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
@@ -56,7 +67,7 @@ REALISM & CONSISTENCY:
 - Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
 - NO hallucinations, NO added people, NO changed environment.`.trim();
 
-        const resultPath = await this.tryOnService.performTryOn(mannequinPath, garments, prompt);
+        const resultPath = await this.tryOnService.performTryOn(mannequinPath, normalizedGarments, prompt);
         const resultFilename = path.basename(resultPath);
 
         // 3. Save session

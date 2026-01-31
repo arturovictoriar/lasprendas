@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pasteboard/pasteboard.dart';
+import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import 'closet_screen.dart';
 
@@ -43,7 +45,20 @@ class _HomeScreenState extends State<HomeScreen> {
     
     setState(() => _isLoading = true);
     try {
-      final imageBytes = await Pasteboard.image;
+      // 1. Try to get image bytes directly
+      Uint8List? imageBytes = await Pasteboard.image;
+      
+      // 2. If no image bytes, try to get text (URL)
+      if (imageBytes == null) {
+        final clipboardText = await Pasteboard.text;
+        if (clipboardText != null && _isValidImageUrl(clipboardText)) {
+          final response = await http.get(Uri.parse(clipboardText));
+          if (response.statusCode == 200) {
+            imageBytes = response.bodyBytes;
+          }
+        }
+      }
+
       if (imageBytes != null) {
         final tempDir = await getTemporaryDirectory();
         final fileName = 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png';
@@ -63,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No hay ninguna imagen en el portapapeles')),
+            const SnackBar(content: Text('No se encontró una imagen o URL válida en el portapapeles')),
           );
         }
       }
@@ -76,6 +91,18 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  bool _isValidImageUrl(String text) {
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasAbsolutePath) return false;
+    
+    final path = uri.path.toLowerCase();
+    return path.endsWith('.png') || 
+           path.endsWith('.jpg') || 
+           path.endsWith('.jpeg') || 
+           path.endsWith('.webp') ||
+           path.contains('imgurl='); // Common in Google Image search results
   }
 
   Future<void> _openCloset() async {
