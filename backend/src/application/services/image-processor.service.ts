@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import sharp from 'sharp';
 import * as path from 'path';
-import * as fs from 'fs';
 
 @Injectable()
 export class ImageProcessorService {
-    private readonly TARGET_WIDTH = 836;
+    private readonly TARGET_WIDTH = 784;
     private readonly TARGET_HEIGHT = 1024;
 
     async normalizeForTryOn(inputPath: string): Promise<string> {
