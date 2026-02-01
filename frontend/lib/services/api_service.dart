@@ -123,4 +123,13 @@ class ApiService {
       throw Exception('Failed to load garments');
     }
   }
+
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    final response = await http.get(Uri.parse('$baseUrl/auth/me'), headers: await _headers());
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to fetch profile: ${response.body}');
+    }
+  }
 }

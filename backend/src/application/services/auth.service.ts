@@ -49,4 +49,13 @@ export class AuthService {
     async validateUser(payload: any): Promise<any> {
         return await this.userRepository.findById(payload.sub);
     }
+
+    async getProfile(userId: string): Promise<any> {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+        const { password, ...result } = user;
+        return result;
+    }
 }

@@ -9,6 +9,7 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import 'closet_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -284,7 +285,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       _resultPath = null;
                     }),
                   ),
-                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white70,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 12),
               ],
             ),
           ),
