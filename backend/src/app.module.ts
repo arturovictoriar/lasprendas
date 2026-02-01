@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
+import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+
 import { GarmentSchema } from './infrastructure/adapters/persistence/garment.schema';
 import { TypeOrmGarmentRepository } from './infrastructure/adapters/persistence/typeorm-garment.repository';
 import { I_GARMENT_REPOSITORY } from './domain/ports/garment.repository.port';
 import { I_TRY_ON_SERVICE } from './domain/ports/try-on.service.port';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
 import { GeminiTryOnAdapter } from './infrastructure/adapters/external/gemini-try-on.adapter';
 import { VirtualTryOnUseCase } from './application/use-cases/virtual-try-on.use-case';
 import { TryOnController } from './infrastructure/controllers/try-on.controller';
@@ -15,8 +20,20 @@ import { TypeOrmTryOnSessionRepository } from './infrastructure/adapters/persist
 import { I_TRY_ON_SESSION_REPOSITORY } from './domain/ports/try-on-session.repository.port';
 import { ImageProcessorService } from './application/services/image-processor.service';
 
+import { UserSchema } from './infrastructure/adapters/persistence/user.schema';
+import { I_USER_REPOSITORY } from './domain/ports/user.repository.port';
+import { TypeOrmUserRepository } from './infrastructure/adapters/persistence/typeorm-user.repository';
+import { AuthService } from './application/services/auth.service';
+import { AuthController } from './infrastructure/controllers/auth.controller';
+import { JwtStrategy } from './infrastructure/adapters/auth/jwt.strategy';
+import { TryOnProcessor } from './application/processors/try-on.processor';
+
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '../.env',
+    }),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'results'),
       serveRoot: '/results',
@@ -24,10 +41,6 @@ import { ImageProcessorService } from './application/services/image-processor.se
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
-    }),
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '../.env',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -39,15 +52,50 @@ import { ImageProcessorService } from './application/services/image-processor.se
         username: process.env.DATABASE_USER || 'postgres',
         password: process.env.DATABASE_PASSWORD || 'postgres',
         database: process.env.DATABASE_NAME || 'lasprendas',
-        entities: [GarmentSchema, TryOnSessionSchema],
-        synchronize: true, // true for dev, use migrations for prod
+        entities: [GarmentSchema, TryOnSessionSchema, UserSchema],
+        synchronize: configService.get<string>('DB_SYNCHRONIZE') !== 'false',
       }),
     }),
-    TypeOrmModule.forFeature([GarmentSchema, TryOnSessionSchema]),
+    TypeOrmModule.forFeature([GarmentSchema, TryOnSessionSchema, UserSchema]),
+    PassportModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || 'defaultSecret',
+        signOptions: { expiresIn: '7d' },
+      }),
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: configService.get<number>('REDIS_PORT') || 6379,
+        },
+      }),
+    }),
+    BullModule.registerQueue({
+      name: 'try-on',
+    }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: 60000,
+          limit: 10,
+        },
+      ],
+    }),
   ],
-  controllers: [TryOnController],
+  controllers: [TryOnController, AuthController],
   providers: [
     VirtualTryOnUseCase,
+    AuthService,
+    JwtStrategy,
+    TryOnProcessor,
     {
       provide: I_GARMENT_REPOSITORY,
       useClass: TypeOrmGarmentRepository,
@@ -59,6 +107,10 @@ import { ImageProcessorService } from './application/services/image-processor.se
     {
       provide: I_TRY_ON_SESSION_REPOSITORY,
       useClass: TypeOrmTryOnSessionRepository,
+    },
+    {
+      provide: I_USER_REPOSITORY,
+      useClass: TypeOrmUserRepository,
     },
     ImageProcessorService,
   ],

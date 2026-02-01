@@ -9,8 +9,8 @@ export class TryOnSessionSchema {
     @Column()
     mannequinUrl: string;
 
-    @Column({ nullable: true })
-    resultUrl: string;
+    @Column({ type: 'varchar', nullable: true })
+    resultUrl: string | null;
 
     @ManyToMany(() => GarmentSchema)
     @JoinTable({

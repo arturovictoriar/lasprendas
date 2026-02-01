@@ -26,7 +26,7 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
     }
 
     private mapToEntity(schema: GarmentSchema): Garment {
-        return new Garment(schema.id, schema.originalUrl, schema.category, schema.createdAt, schema.deletedAt);
+        return new Garment(schema.originalUrl, schema.category, schema.createdAt, schema.deletedAt, schema.id);
     }
 
     async findById(id: string): Promise<Garment | null> {

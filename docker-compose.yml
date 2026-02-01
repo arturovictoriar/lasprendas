@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: lasprendas_redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   db:
     image: postgres:15-alpine
     container_name: lasprendas_db
@@ -28,7 +38,10 @@ services:
       DATABASE_USER: ${DB_USER:-postgres}
       DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
       DATABASE_NAME: ${DB_NAME:-lasprendas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-supersecret}
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -37,6 +50,35 @@ services:
       - ./assets/images:/app/assets
     depends_on:
       - db
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lasprendas_worker
+    restart: always
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-postgres}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
+      DATABASE_NAME: ${DB_NAME:-lasprendas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-supersecret}
+      DB_SYNCHRONIZE: "false"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./backend/uploads:/app/uploads
+      - ./backend/results:/app/results
+      - ./assets/images:/app/assets
+    depends_on:
+      - db
+      - redis
 
 volumes:
   postgres_data:
+  redis_data:

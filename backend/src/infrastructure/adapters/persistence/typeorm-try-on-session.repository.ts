@@ -18,7 +18,7 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         const schema = new TryOnSessionSchema();
         if (session.id) schema.id = session.id;
         schema.mannequinUrl = session.mannequinUrl;
-        schema.resultUrl = session.resultUrl || '';
+        schema.resultUrl = session.resultUrl;
 
         // Map garments to schemas (assuming they already exist)
         schema.garments = session.garments.map(g => {
@@ -55,12 +55,12 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
 
     private mapToEntity(schema: TryOnSessionSchema): TryOnSession {
         return new TryOnSession(
-            schema.id,
             schema.mannequinUrl,
             schema.resultUrl,
-            (schema.garments || []).map(g => new Garment(g.id, g.originalUrl, g.category, g.createdAt, g.deletedAt)),
+            (schema.garments || []).map(g => new Garment(g.originalUrl, g.category, g.createdAt, g.deletedAt, g.id)),
             schema.createdAt,
-            schema.deletedAt
+            schema.deletedAt,
+            schema.id
         );
     }
 }

@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<dynamic> _selectedItems = []; // Can be File or Map (Garment)
   String? _resultPath;
   bool _isLoading = false;
+  String? _statusMessage;
   String _personType = 'female'; // 'female' or 'male'
   final ImagePicker _picker = ImagePicker();
 
@@ -130,6 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _isLoading = true;
+      _statusMessage = 'Iniciando procesamiento...';
     });
 
     try {
@@ -139,23 +141,84 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((item) => item['id'] as String)
           .toList();
 
-      final result = await ApiService.uploadGarments(
+      final response = await ApiService.uploadGarments(
         files, 
         'clothing', 
         garmentIds: garmentIds,
         personType: _personType,
       );
-      setState(() {
-        _resultPath = result['resultPath'];
-      });
+      
+      final sessionId = response['id'] ?? response['sessionId'];
+      if (sessionId == null) {
+        print('Error: Response body: $response');
+        throw 'No se recibió el ID de la sesión';
+      }
+
+      await _pollSessionStatus(sessionId.toString());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    } finally {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
       setState(() {
         _isLoading = false;
+        _statusMessage = null;
       });
+    }
+  }
+
+  Future<void> _pollSessionStatus(String sessionId) async {
+    const maxRetries = 40; // ~2 mins
+    int retries = 0;
+
+    while (retries < maxRetries) {
+      if (!mounted) return;
+      
+      final dressingMessages = [
+        'Ajustando costuras',
+        'Combinando texturas',
+        'En el probador',
+        'Espejito, espejito',
+        'Perfeccionando el look',
+        'Cerrando cremalleras',
+        'Planchando detalles',
+        'Buscando el ángulo perfecto',
+        'Preparando la pasarela',
+        'Estilizando tu figura',
+        'Iluminando el set',
+        'Capturando la esencia',
+      ];
+      final currentMessage = dressingMessages[retries % dressingMessages.length];
+      setState(() => _statusMessage = '$currentMessage...');
+      
+      try {
+        final session = await ApiService.getSessionStatus(sessionId);
+        final resultUrl = session['resultUrl'];
+        if (resultUrl != null && resultUrl.toString().isNotEmpty) {
+          setState(() {
+            _resultPath = resultUrl;
+            _isLoading = false;
+            _statusMessage = null;
+          });
+          return;
+        }
+      } catch (e) {
+        print('Polling error: $e');
+      }
+
+      await Future.delayed(const Duration(seconds: 3));
+      retries++;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El procesamiento está tardando más de lo esperado. Mira tus outfits luego.')),
+      );
     }
   }
 
@@ -291,8 +354,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_isLoading)
                         Container(
                           color: Colors.black45,
-                          child: const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const CircularProgressIndicator(color: Colors.white),
+                                if (_statusMessage != null) ...[
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    _statusMessage!,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                     ],
@@ -315,33 +390,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   return Stack(
                     children: [
-                      Container(
-                        width: 80,
-                        margin: const EdgeInsets.only(right: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: isFile 
-                              ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                              : CachedNetworkImage(
-                                  imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 200, // Small selection thumbnail
-                                  placeholder: (context, url) => Container(color: Colors.white10),
-                                ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 5,
-                        top: -5,
-                        child: IconButton(
-                          icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
-                          onPressed: () => _removeImage(index),
+                      Opacity(
+                        opacity: _isLoading ? 0.5 : 1.0,
+                        child: Container(
+                          width: 80,
+                          margin: const EdgeInsets.only(right: 15),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: isFile 
+                                ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
+                                : CachedNetworkImage(
+                                    imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 200, 
+                                    placeholder: (context, url) => Container(color: Colors.white10),
+                                  ),
+                          ),
                         ),
                       ),
+                      if (!_isLoading)
+                        Positioned(
+                          right: 5,
+                          top: -5,
+                          child: IconButton(
+                            icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
+                            onPressed: () => _removeImage(index),
+                          ),
+                        ),
                     ],
                   );
                 },

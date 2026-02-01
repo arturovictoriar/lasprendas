@@ -1,13 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { I_GARMENT_REPOSITORY } from '../../domain/ports/garment.repository.port';
 import type { IGarmentRepository } from '../../domain/ports/garment.repository.port';
-import { I_TRY_ON_SERVICE } from '../../domain/ports/try-on.service.port';
-import type { ITryOnService } from '../../domain/ports/try-on.service.port';
 import { Garment } from '../../domain/entities/garment.entity';
 import { TryOnSession } from '../../domain/entities/try-on-session.entity';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
 import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
-import * as path from 'path';
 import { ImageProcessorService } from '../services/image-processor.service';
 
 @Injectable()
@@ -15,17 +14,17 @@ export class VirtualTryOnUseCase {
     constructor(
         @Inject(I_GARMENT_REPOSITORY)
         private readonly garmentRepository: IGarmentRepository,
-        @Inject(I_TRY_ON_SERVICE)
-        private readonly tryOnService: ITryOnService,
         @Inject(I_TRY_ON_SESSION_REPOSITORY)
         private readonly sessionRepository: ITryOnSessionRepository,
         private readonly imageProcessorService: ImageProcessorService,
+        @InjectQueue('try-on')
+        private readonly tryOnQueue: Queue,
     ) { }
 
     async execute(garmentImagePaths: string[], category: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
         // 1. Get/Save garments
         const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
-            const garment = new Garment(null, path, category, new Date());
+            const garment = new Garment(path, category, new Date());
             return await this.garmentRepository.save(garment);
         }));
 
@@ -36,51 +35,23 @@ export class VirtualTryOnUseCase {
             throw new Error('No garments provided for try-on');
         }
 
-        // 2. Normalize garment images to match mannequin aspect ratio
-        const normalizedGarments = await Promise.all(garments.map(async (garment) => {
-            const normalizedPath = await this.imageProcessorService.normalizeForTryOn(garment.originalUrl);
-            return {
-                ...garment,
-                originalUrl: normalizedPath
-            } as Garment;
-        }));
-
-        // 3. Perform Virtual Try-On
+        // 2. Create session (without result yet)
         const anchorImage = personType === 'male' ? 'male_mannequin_anchor.png' : 'female_mannequin_anchor.png';
-        const mannequinPath = path.join(process.cwd(), 'assets', anchorImage);
 
-        const prompt = `STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
-The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
-Do NOT change its pose, face (no face), skin color (gray), body shape, underwear or background.
-
-TRANSFER TASK:
-Analyze the clothing items in the additional images (Images 2, 3, etc.).
-Remove DISNEY copyrighted or branded content from the images.
-Fit ALL these items onto the mannequin from Image 1 simultaneously.
-- Tops/Shirts go to the torso.
-- Bottoms/Pants go to the legs.
-- Accessories go to their respective natural positions.
-
-REALISM & CONSISTENCY:
-- Maintain the original lighting and neutral background.
-- Ensure fabric draping, shadows, and scale are realistic for the mannequin's pose.
-- The output MUST look like the original mannequin wearing the new clothes.
-- Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
-- NO hallucinations, NO added people, NO changed environment.`.trim();
-
-        const resultPath = await this.tryOnService.performTryOn(mannequinPath, normalizedGarments, prompt);
-        const resultFilename = path.basename(resultPath);
-
-        // 4. Save session
         const session = new TryOnSession(
-            null,
             `assets/${anchorImage}`,
-            resultFilename,
+            null, // resultUrl will be updated by processor
             garments,
             new Date()
         );
-        await this.sessionRepository.save(session);
+        const savedSession = await this.sessionRepository.save(session);
 
-        return resultFilename;
+        // 3. Add job to queue
+        await this.tryOnQueue.add('process-try-on', {
+            sessionId: savedSession.id,
+            personType,
+        });
+
+        return savedSession.id!;
     }
 }

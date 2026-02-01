@@ -1,4 +1,4 @@
-import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException } from '@nestjs/common';
+import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException, UseGuards } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
 import { diskStorage } from 'multer';
@@ -7,8 +7,10 @@ import { I_GARMENT_REPOSITORY } from '../../domain/ports/garment.repository.port
 import type { IGarmentRepository } from '../../domain/ports/garment.repository.port';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
 import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
+import { JwtAuthGuard } from '../adapters/auth/jwt-auth.guard';
 
 @Controller('try-on')
+@UseGuards(JwtAuthGuard)
 export class TryOnController {
     constructor(
         private readonly virtualTryOnUseCase: VirtualTryOnUseCase,
@@ -21,6 +23,16 @@ export class TryOnController {
     @Get('sessions')
     async getSessions() {
         return await this.sessionRepository.findAll();
+    }
+
+    @Get('sessions/:id')
+    async getSessionById(@Param('id') id: string) {
+        const session = await this.sessionRepository.findById(id);
+        if (!session) return null;
+        return {
+            ...session,
+            resultUrl: session.resultUrl, // Ensure it's explicitly here
+        };
     }
 
     @Get('garments')
@@ -60,11 +72,11 @@ export class TryOnController {
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
 
         try {
-            const resultPath = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids, personType || 'female');
+            const sessionId = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids, personType || 'female');
             return {
                 success: true,
-                resultPath: resultPath,
-                originalPaths: filePaths
+                id: sessionId,
+                sessionId: sessionId
             };
         } catch (error) {
             if ((error as Error).message === 'No garments provided for try-on') {
