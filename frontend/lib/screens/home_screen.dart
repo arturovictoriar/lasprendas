@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
-    if (_isLoading || _selectedItems.length >= 4) return;
+    if (_isLoading || _selectedItems.length >= 10) return;
     setState(() => _isLoading = true);
     
     try {
@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handlePasteImage() async {
-    if (_isLoading || _selectedItems.length >= 4) return;
+    if (_isLoading || _selectedItems.length >= 10) return;
     
     setState(() => _isLoading = true);
     try {
@@ -445,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.camera_alt_outlined,
                         label: 'Cámara',
-                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.camera),
+                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -453,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
                         label: 'Galería',
-                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : () => _pickImage(ImageSource.gallery),
+                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.gallery),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -461,7 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.content_paste_outlined,
                         label: 'PEGAR',
-                        onPressed: _isLoading || _selectedItems.length >= 4 ? null : _handlePasteImage,
+                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : _handlePasteImage,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -469,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
                         label: 'Closet',
-                        onPressed: _isLoading || _selectedItems.whereType<File>().length >= 4 ? null : _openCloset,
+                        onPressed: _isLoading || _selectedItems.whereType<File>().length >= 10 ? null : _openCloset,
                       ),
                     ),
                   ],
@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VIRTUAL TRY-ON (${_selectedItems.length}/4)',
+                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VIRTUAL TRY-ON (${_selectedItems.length}/10)',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),

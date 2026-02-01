@@ -53,7 +53,7 @@ export class TryOnController {
     }
 
     @Post()
-    @UseInterceptors(FilesInterceptor('images', 4, {
+    @UseInterceptors(FilesInterceptor('images', 10, {
         storage: diskStorage({
             destination: './uploads',
             filename: (req, file, cb) => {

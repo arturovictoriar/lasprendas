@@ -75,12 +75,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       if (index >= 0) {
         _selectedInSession.removeAt(index);
       } else {
-        if (_selectedInSession.length + widget.externalCount < 4) {
+        if (_selectedInSession.length + widget.externalCount < 10) {
           _selectedInSession.add(garment);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Ya tienes ${widget.externalCount + _selectedInSession.length} prendas. El máximo es 4.'),
+              content: Text('Ya tienes ${widget.externalCount + _selectedInSession.length} prendas. El máximo es 10.'),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -165,7 +165,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: Text(
-          'CLOSET ($totalCount/4)', 
+          'CLOSET ($totalCount/10)', 
           style: const TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
