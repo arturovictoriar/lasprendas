@@ -257,7 +257,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
                   if (_isEditMode) {
-                    _deleteGarment(garment['id']);
+                    _deleteGarment(garment['id'].toString());
                   } else {
                     _toggleSelection(garment);
                   }
@@ -297,16 +297,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                       Positioned(
                         left: 5,
                         top: 5,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
-                            ],
+                        child: GestureDetector(
+                          onTap: () => _deleteGarment(garment['id'].toString()),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                              ],
+                            ),
+                            child: const Icon(Icons.delete, size: 20, color: Colors.white),
                           ),
-                          child: const Icon(Icons.delete, size: 20, color: Colors.white),
                         ),
                       ),
                   ],
@@ -428,16 +431,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
-                      ],
+                  child: GestureDetector(
+                    onTap: () => _deleteSession(session['id'].toString()),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                        ],
+                      ),
+                      child: const Icon(Icons.delete, color: Colors.white, size: 24),
                     ),
-                    child: const Icon(Icons.delete, color: Colors.white, size: 24),
                   ),
                 ),
             ],
