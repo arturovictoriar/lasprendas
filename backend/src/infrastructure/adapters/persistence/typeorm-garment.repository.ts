@@ -16,28 +16,29 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
         const schema = new GarmentSchema();
         schema.originalUrl = garment.originalUrl;
         schema.category = garment.category;
+        schema.userId = garment.userId;
 
         const saved = await this.repository.save(schema);
         return this.mapToEntity(saved);
     }
 
-    async delete(id: string): Promise<void> {
-        await this.repository.update(id, { deletedAt: new Date() });
+    async delete(id: string, userId: string): Promise<void> {
+        await this.repository.update({ id, userId }, { deletedAt: new Date() });
     }
 
     private mapToEntity(schema: GarmentSchema): Garment {
-        return new Garment(schema.originalUrl, schema.category, schema.createdAt, schema.deletedAt, schema.id);
+        return new Garment(schema.originalUrl, schema.category, schema.createdAt, schema.userId, schema.deletedAt, schema.id);
     }
 
-    async findById(id: string): Promise<Garment | null> {
-        const found = await this.repository.findOneBy({ id });
+    async findById(id: string, userId: string): Promise<Garment | null> {
+        const found = await this.repository.findOneBy({ id, userId });
         if (!found) return null;
         return this.mapToEntity(found);
     }
 
-    async findAll(): Promise<Garment[]> {
+    async findAll(userId: string): Promise<Garment[]> {
         const garments = await this.repository.find({
-            where: { deletedAt: IsNull() },
+            where: { userId, deletedAt: IsNull() },
             order: { createdAt: 'DESC' }
         });
         return garments.map(g => this.mapToEntity(g));

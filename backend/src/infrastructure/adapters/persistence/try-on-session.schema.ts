@@ -12,6 +12,9 @@ export class TryOnSessionSchema {
     @Column({ type: 'varchar', nullable: true })
     resultUrl: string | null;
 
+    @Column()
+    userId: string;
+
     @ManyToMany(() => GarmentSchema)
     @JoinTable({
         name: 'session_garments',

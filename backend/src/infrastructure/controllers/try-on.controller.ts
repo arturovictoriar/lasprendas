@@ -1,4 +1,4 @@
-import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException, UseGuards } from '@nestjs/common';
+import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException, UseGuards, Request } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
 import { diskStorage } from 'multer';
@@ -21,13 +21,13 @@ export class TryOnController {
     ) { }
 
     @Get('sessions')
-    async getSessions() {
-        return await this.sessionRepository.findAll();
+    async getSessions(@Request() req: any) {
+        return await this.sessionRepository.findAll(req.user.userId);
     }
 
     @Get('sessions/:id')
-    async getSessionById(@Param('id') id: string) {
-        const session = await this.sessionRepository.findById(id);
+    async getSessionById(@Param('id') id: string, @Request() req: any) {
+        const session = await this.sessionRepository.findById(id, req.user.userId);
         if (!session) return null;
         return {
             ...session,
@@ -36,19 +36,19 @@ export class TryOnController {
     }
 
     @Get('garments')
-    async getGarments() {
-        return await this.garmentRepository.findAll();
+    async getGarments(@Request() req: any) {
+        return await this.garmentRepository.findAll(req.user.userId);
     }
 
     @Delete('garments/:id')
-    async deleteGarment(@Param('id') id: string) {
-        await this.garmentRepository.delete(id);
+    async deleteGarment(@Param('id') id: string, @Request() req: any) {
+        await this.garmentRepository.delete(id, req.user.userId);
         return { success: true };
     }
 
     @Delete('sessions/:id')
-    async deleteSession(@Param('id') id: string) {
-        await this.sessionRepository.delete(id);
+    async deleteSession(@Param('id') id: string, @Request() req: any) {
+        await this.sessionRepository.delete(id, req.user.userId);
         return { success: true };
     }
 
@@ -65,6 +65,7 @@ export class TryOnController {
     async uploadGarment(
         @UploadedFiles() files: Express.Multer.File[],
         @Body('category') category: string,
+        @Request() req: any,
         @Body('garmentIds') garmentIds?: string | string[],
         @Body('personType') personType?: string
     ) {
@@ -72,7 +73,7 @@ export class TryOnController {
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
 
         try {
-            const sessionId = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', ids, personType || 'female');
+            const sessionId = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', req.user.userId, ids, personType || 'female');
             return {
                 success: true,
                 id: sessionId,

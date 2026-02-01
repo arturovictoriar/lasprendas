@@ -11,6 +11,9 @@ export class GarmentSchema {
     @Column()
     category: string;
 
+    @Column()
+    userId: string;
+
     @CreateDateColumn()
     createdAt: Date;
 

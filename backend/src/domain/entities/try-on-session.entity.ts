@@ -6,6 +6,7 @@ export class TryOnSession {
         public resultUrl: string | null,
         public readonly garments: Garment[],
         public readonly createdAt: Date,
+        public readonly userId: string,
         public readonly deletedAt: Date | null = null,
         public readonly id?: string,
     ) { }

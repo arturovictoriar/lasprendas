@@ -21,14 +21,14 @@ export class VirtualTryOnUseCase {
         private readonly tryOnQueue: Queue,
     ) { }
 
-    async execute(garmentImagePaths: string[], category: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
+    async execute(garmentImagePaths: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
         // 1. Get/Save garments
         const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
-            const garment = new Garment(path, category, new Date());
+            const garment = new Garment(path, category, new Date(), userId);
             return await this.garmentRepository.save(garment);
         }));
 
-        const existingGarments = garmentIds ? await Promise.all(garmentIds.map(id => this.garmentRepository.findById(id))) : [];
+        const existingGarments = garmentIds ? await Promise.all(garmentIds.map(id => this.garmentRepository.findById(id, userId))) : [];
         const garments = [...uploadedGarments, ...existingGarments.filter((g): g is Garment => g !== null)];
 
         if (garments.length === 0) {
@@ -42,7 +42,8 @@ export class VirtualTryOnUseCase {
             `assets/${anchorImage}`,
             null, // resultUrl will be updated by processor
             garments,
-            new Date()
+            new Date(),
+            userId
         );
         const savedSession = await this.sessionRepository.save(session);
 
@@ -50,6 +51,7 @@ export class VirtualTryOnUseCase {
         await this.tryOnQueue.add('process-try-on', {
             sessionId: savedSession.id,
             personType,
+            userId,
         });
 
         return savedSession.id!;

@@ -272,34 +272,29 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          SizedBox(
-            width: 80,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (_selectedItems.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white70),
-                    onPressed: () => setState(() {
-                      _selectedItems.clear();
-                      _resultPath = null;
-                    }),
-                  ),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white70,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
+          if (_selectedItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _selectedItems.clear();
+                  _resultPath = null;
+                }),
+                child: const Icon(Icons.refresh, color: Colors.white70, size: 26),
+              ),
+            ),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            ),
+            child: const Icon(
+              Icons.person,
+              color: Colors.white70,
+              size: 26,
             ),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: Column(

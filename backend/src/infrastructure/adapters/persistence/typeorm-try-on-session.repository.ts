@@ -19,6 +19,7 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         if (session.id) schema.id = session.id;
         schema.mannequinUrl = session.mannequinUrl;
         schema.resultUrl = session.resultUrl;
+        schema.userId = session.userId;
 
         // Map garments to schemas (assuming they already exist)
         schema.garments = session.garments.map(g => {
@@ -31,22 +32,22 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         return this.mapToEntity(saved);
     }
 
-    async delete(id: string): Promise<void> {
-        await this.repository.update(id, { deletedAt: new Date() });
+    async delete(id: string, userId: string): Promise<void> {
+        await this.repository.update({ id, userId }, { deletedAt: new Date() });
     }
 
-    async findById(id: string): Promise<TryOnSession | null> {
+    async findById(id: string, userId: string): Promise<TryOnSession | null> {
         const found = await this.repository.findOne({
-            where: { id },
+            where: { id, userId },
             relations: ['garments']
         });
         if (!found) return null;
         return this.mapToEntity(found);
     }
 
-    async findAll(): Promise<TryOnSession[]> {
+    async findAll(userId: string): Promise<TryOnSession[]> {
         const list = await this.repository.find({
-            where: { deletedAt: IsNull() },
+            where: { userId, deletedAt: IsNull() },
             relations: ['garments'],
             order: { createdAt: 'DESC' }
         });
@@ -57,8 +58,9 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         return new TryOnSession(
             schema.mannequinUrl,
             schema.resultUrl,
-            (schema.garments || []).map(g => new Garment(g.originalUrl, g.category, g.createdAt, g.deletedAt, g.id)),
+            (schema.garments || []).map(g => new Garment(g.originalUrl, g.category, g.createdAt, schema.userId, g.deletedAt, g.id)),
             schema.createdAt,
+            schema.userId,
             schema.deletedAt,
             schema.id
         );

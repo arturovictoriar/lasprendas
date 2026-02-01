@@ -23,10 +23,10 @@ export class TryOnProcessor extends WorkerHost {
     }
 
     async process(job: Job<any, any, string>): Promise<any> {
-        const { sessionId, personType } = job.data;
+        const { sessionId, personType, userId } = job.data;
 
         try {
-            const session = await this.sessionRepository.findById(sessionId);
+            const session = await this.sessionRepository.findById(sessionId, userId);
             if (!session) throw new Error('Session not found');
 
             // Normalize garments
