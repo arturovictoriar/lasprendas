@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isCancelled = false;
   String? _statusMessage;
   String _personType = 'female'; // 'female' or 'male'
+  String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
@@ -133,12 +134,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _tryOn() async {
     if (_selectedItems.isEmpty || _isLoading) return;
 
+    final requestedPersonType = _personType; // Capturar el género actual
     setState(() {
       _isLoading = true;
       _isRetrying = false;
       _isCancelled = false;
       _statusMessage = 'Vistiendo...';
       _processingItems = List.from(_selectedItems); // Capture current selection
+      _processingPersonType = requestedPersonType; // Store gender for UI
     });
 
     try {
@@ -157,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
             files, 
             'clothing', 
             garmentIds: garmentIds,
-            personType: _personType,
+            personType: requestedPersonType, // Usar el género capturado al inicio
           );
           
           sessionId = response['id'] ?? response['sessionId'];
@@ -184,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _isRetrying = false;
           _statusMessage = 'Ajustando detalles...';
         });
-        await _pollSessionStatus(sessionId.toString());
+        await _pollSessionStatus(sessionId.toString(), requestedPersonType);
       }
     } catch (e) {
       if (mounted && !_isCancelled) {
@@ -204,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _pollSessionStatus(String sessionId) async {
+  Future<void> _pollSessionStatus(String sessionId, String requestedPersonType) async {
     const maxRetries = 40; // ~2 mins
     int retries = 0;
 
@@ -236,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final resultUrl = session['resultUrl'];
         if (resultUrl != null && resultUrl.toString().isNotEmpty) {
           setState(() {
+            _personType = requestedPersonType; // Sincronizar iconos con el resultado
             _resultPath = resultUrl;
             _isLoading = false;
             _statusMessage = null;
@@ -341,89 +345,111 @@ class _HomeScreenState extends State<HomeScreen> {
             flex: 4,
             child: Stack(
               children: [
-                Container(
-                  margin: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: InteractiveViewer(
-                      minScale: 1.0,
-                      maxScale: 4.0,
-                      child: _resultPath != null
-                          ? CachedNetworkImage(
-                              imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
-                              key: ValueKey(_resultPath),
-                              fit: BoxFit.contain,
-                              memCacheHeight: 1200,
-                              placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(color: Colors.white),
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: _resultPath != null
+                            ? CachedNetworkImage(
+                                imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
+                                key: ValueKey(_resultPath),
+                                fit: BoxFit.contain,
+                                memCacheHeight: 1200,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(color: Colors.white),
+                                ),
+                                errorWidget: (context, url, error) {
+                                  return const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                      SizedBox(height: 10),
+                                      Text(
+                                        'Error cargando resultado',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              )
+                            : Image.asset(
+                                _personType == 'female' 
+                                    ? 'assets/images/female_mannequin_anchor.png' 
+                                    : 'assets/images/male_mannequin_anchor.png', 
+                                fit: BoxFit.contain
                               ),
-                              errorWidget: (context, url, error) {
-                                return const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
-                                    SizedBox(height: 10),
-                                    Text(
-                                      'Error cargando resultado',
-                                      style: TextStyle(color: Colors.white70),
-                                    ),
-                                  ],
-                                );
-                              },
-                            )
-                          : Image.asset(
-                              _personType == 'female' 
-                                  ? 'assets/images/female_mannequin_anchor.png' 
-                                  : 'assets/images/male_mannequin_anchor.png', 
-                              fit: BoxFit.contain
-                            ),
+                      ),
                     ),
                   ),
                 ),
-                               // Tarjeta de carga flotante: Con transición suave
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _isLoading ? 1.0 : 0.0,
-                  curve: Curves.easeInOut,
-                  child: AnimatedScale(
+                Positioned(
+                  bottom: 10,
+                  left: -4,
+                  child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
-                    scale: _isLoading ? 1.0 : 0.95,
-                    curve: Curves.easeOutBack,
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 10, left: 10),
-                        child: IgnorePointer(
-                          ignoring: !_isLoading,
-                          child: Container(
-                            width: 120,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.95),
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.white10),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black45, blurRadius: 10),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (_processingItems.isNotEmpty)
-                                  SizedBox(
-                                    height: 45,
+                    opacity: _isLoading ? 1.0 : 0.0,
+                    curve: Curves.easeInOut,
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 300),
+                      scale: _isLoading ? 1.0 : 0.95,
+                      curve: Curves.easeOutBack,
+                      child: IgnorePointer(
+                        ignoring: !_isLoading,
+                        child: Container(
+                          width: 120, // Revertido al tamaño original que te gustaba
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: Colors.white10),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black45, blurRadius: 10),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_processingItems.isNotEmpty)
+                            SizedBox(
+                              height: 45,
+                              child: Row(
+                                children: [
+                                  // Maniquí FIJO
+                                  Container(
+                                    width: 30,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: Colors.white, width: 1.5),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(5),
+                                      child: Image.asset(
+                                        _processingPersonType == 'female' 
+                                            ? 'assets/images/female_mannequin_anchor.png' 
+                                            : 'assets/images/male_mannequin_anchor.png',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  const VerticalDivider(color: Colors.white24, width: 8, indent: 5, endIndent: 5), // Reducido de 12 a 8
+                                  // Ropa con Scroll
+                                  Expanded(
                                     child: SingleChildScrollView(
                                       scrollDirection: Axis.horizontal,
                                       child: Row(
@@ -450,46 +476,48 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const SizedBox(
-                                      width: 12,
-                                      height: 12,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _isRetrying ? 'ESPERANDO...' : 'VISTIENDO...',
-                                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_isRetrying)
-                                  GestureDetector(
-                                    onTap: () {
-                                      if (!mounted) return;
-                                      setState(() {
-                                        _isCancelled = true;
-                                        _isLoading = false;
-                                        _isRetrying = false;
-                                        _statusMessage = null;
-                                        _processingItems = [];
-                                      });
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(top: 8),
-                                      child: Text(
-                                        'CANCELAR', 
-                                        style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
-                                      ),
+                                ],
+                              ),
+                            ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _isRetrying ? 'ESPERANDO...' : 'VISTIENDO...',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                              ],
-                            ),
+                                ],
+                              ),
+                              if (_isRetrying)
+                                GestureDetector(
+                                  onTap: () {
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _isCancelled = true;
+                                      _isLoading = false;
+                                      _isRetrying = false;
+                                      _statusMessage = null;
+                                      _processingItems = [];
+                                    });
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      'CANCELAR', 
+                                      style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
