@@ -20,8 +20,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final List<dynamic> _selectedItems = []; // Can be File or Map (Garment)
+  List<dynamic> _processingItems = []; // Items currently being "dressed"
   String? _resultPath;
   bool _isLoading = false;
+  bool _isRetrying = false;
+  bool _isCancelled = false;
   String? _statusMessage;
   String _personType = 'female'; // 'female' or 'male'
   final ImagePicker _picker = ImagePicker();
@@ -32,14 +35,14 @@ class _HomeScreenState extends State<HomeScreen> {
     
     try {
       final XFile? image = await _picker.pickImage(source: source);
-      if (image != null) {
+      if (image != null && mounted) {
         setState(() {
           _selectedItems.add(File(image.path));
           _resultPath = null;
         });
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -128,44 +131,76 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _tryOn() async {
-    if (_selectedItems.isEmpty) return;
+    if (_selectedItems.isEmpty || _isLoading) return;
 
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Iniciando procesamiento...';
+      _isRetrying = false;
+      _isCancelled = false;
+      _statusMessage = 'Vistiendo...';
+      _processingItems = List.from(_selectedItems); // Capture current selection
     });
 
     try {
-      final List<File> files = _selectedItems.whereType<File>().toList();
-      final List<String> garmentIds = _selectedItems
+      final List<File> files = _processingItems.whereType<File>().toList();
+      final List<String> garmentIds = _processingItems
           .where((item) => item is Map)
           .map((item) => item['id'] as String)
           .toList();
 
-      final response = await ApiService.uploadGarments(
-        files, 
-        'clothing', 
-        garmentIds: garmentIds,
-        personType: _personType,
-      );
-      
-      final sessionId = response['id'] ?? response['sessionId'];
-      if (sessionId == null) {
-        print('Error: Response body: $response');
-        throw 'No se recibió el ID de la sesión';
+      bool success = false;
+      String? sessionId;
+
+      while (!success && !_isCancelled) {
+        try {
+          final response = await ApiService.uploadGarments(
+            files, 
+            'clothing', 
+            garmentIds: garmentIds,
+            personType: _personType,
+          );
+          
+          sessionId = response['id'] ?? response['sessionId'];
+          if (sessionId == null) throw 'No se recibió el ID de la sesión';
+          success = true;
+        } catch (e) {
+          if (e.toString().contains('503') || e.toString().contains('lleno')) {
+            if (!mounted) return;
+            setState(() {
+              _isRetrying = true;
+              _statusMessage = 'El vestier está muy lleno hoy... Reintentando...';
+            });
+            await Future.delayed(const Duration(seconds: 5));
+          } else {
+            rethrow;
+          }
+        }
+        if (!mounted) return;
       }
 
-      await _pollSessionStatus(sessionId.toString());
+      if (success && sessionId != null && !_isCancelled) {
+        if (!mounted) return;
+        setState(() {
+          _isRetrying = false;
+          _statusMessage = 'Ajustando detalles...';
+        });
+        await _pollSessionStatus(sessionId.toString());
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !_isCancelled) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
         );
       }
-      setState(() {
-        _isLoading = false;
-        _statusMessage = null;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRetrying = false;
+          _statusMessage = null;
+          _processingItems = [];
+        });
+      }
     }
   }
 
@@ -191,10 +226,13 @@ class _HomeScreenState extends State<HomeScreen> {
         'Capturando la esencia',
       ];
       final currentMessage = dressingMessages[retries % dressingMessages.length];
+      if (!mounted || _isCancelled) return;
       setState(() => _statusMessage = '$currentMessage...');
       
       try {
         final session = await ApiService.getSessionStatus(sessionId);
+        if (!mounted || _isCancelled) return;
+        
         final resultUrl = session['resultUrl'];
         if (resultUrl != null && resultUrl.toString().isNotEmpty) {
           setState(() {
@@ -301,51 +339,44 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Expanded(
             flex: 4,
-            child: Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+            child: Stack(
+              children: [
+                Container(
+                  margin: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: InteractiveViewer(
-                minScale: 1.0,
-                maxScale: 4.0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Maniquí Base o Resultado
-                      _resultPath != null
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: InteractiveViewer(
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      child: _resultPath != null
                           ? CachedNetworkImage(
                               imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
-                              key: ValueKey(_resultPath), // Force rebuild when path changes
+                              key: ValueKey(_resultPath),
                               fit: BoxFit.contain,
-                              memCacheHeight: 1200, // Reasonable limit for result preview
+                              memCacheHeight: 1200,
                               placeholder: (context, url) => const Center(
                                 child: CircularProgressIndicator(color: Colors.white),
                               ),
                               errorWidget: (context, url, error) {
-                                return Column(
+                                return const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
-                                    const SizedBox(height: 10),
-                                    const Text(
+                                    Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                    SizedBox(height: 10),
+                                    Text(
                                       'Error cargando resultado',
                                       style: TextStyle(color: Colors.white70),
-                                    ),
-                                    Text(
-                                      '${ApiService.baseUrl}/results/$_resultPath',
-                                      style: const TextStyle(color: Colors.white30, fontSize: 10),
-                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 );
@@ -353,34 +384,119 @@ class _HomeScreenState extends State<HomeScreen> {
                             )
                           : Image.asset(
                               _personType == 'female' 
-                                ? 'assets/images/female_mannequin_anchor.png' 
-                                : 'assets/images/male_mannequin_anchor.png', 
+                                  ? 'assets/images/female_mannequin_anchor.png' 
+                                  : 'assets/images/male_mannequin_anchor.png', 
                               fit: BoxFit.contain
                             ),
-                      
-                      if (_isLoading)
-                        Container(
-                          color: Colors.black45,
-                          child: Center(
+                    ),
+                  ),
+                ),
+                               // Tarjeta de carga flotante: Con transición suave
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _isLoading ? 1.0 : 0.0,
+                  curve: Curves.easeInOut,
+                  child: AnimatedScale(
+                    duration: const Duration(milliseconds: 300),
+                    scale: _isLoading ? 1.0 : 0.95,
+                    curve: Curves.easeOutBack,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10, left: 10),
+                        child: IgnorePointer(
+                          ignoring: !_isLoading,
+                          child: Container(
+                            width: 120,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.95),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.white10),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black45, blurRadius: 10),
+                              ],
+                            ),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const CircularProgressIndicator(color: Colors.white),
-                                if (_statusMessage != null) ...[
-                                  const SizedBox(height: 20),
-                                  Text(
-                                    _statusMessage!,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                if (_processingItems.isNotEmpty)
+                                  SizedBox(
+                                    height: 45,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: _processingItems.map((item) {
+                                          return Container(
+                                            width: 30,
+                                            margin: const EdgeInsets.only(right: 6),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.white24),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(5),
+                                              child: item is File 
+                                                ? Image.file(item, fit: BoxFit.cover)
+                                                : CachedNetworkImage(
+                                                    imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
                                   ),
-                                ],
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _isRetrying ? 'ESPERANDO...' : 'VISTIENDO...',
+                                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_isRetrying)
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (!mounted) return;
+                                      setState(() {
+                                        _isCancelled = true;
+                                        _isLoading = false;
+                                        _isRetrying = false;
+                                        _statusMessage = null;
+                                        _processingItems = [];
+                                      });
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        'CANCELAR', 
+                                        style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
                         ),
-                    ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
 
@@ -397,37 +513,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   return Stack(
                     children: [
-                      Opacity(
-                        opacity: _isLoading ? 0.5 : 1.0,
-                        child: Container(
-                          width: 80,
-                          margin: const EdgeInsets.only(right: 15),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: isFile 
-                                ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                                : CachedNetworkImage(
-                                    imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
-                                    fit: BoxFit.cover,
-                                    memCacheWidth: 200, 
-                                    placeholder: (context, url) => Container(color: Colors.white10),
-                                  ),
-                          ),
+                      Container(
+                        width: 80,
+                        margin: const EdgeInsets.only(right: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: isFile 
+                              ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
+                              : CachedNetworkImage(
+                                  imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                  fit: BoxFit.cover,
+                                  memCacheWidth: 200, 
+                                  placeholder: (context, url) => Container(color: Colors.white10),
+                                ),
                         ),
                       ),
-                      if (!_isLoading)
-                        Positioned(
-                          right: 5,
-                          top: -5,
-                          child: IconButton(
-                            icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
-                            onPressed: () => _removeImage(index),
-                          ),
+                      Positioned(
+                        right: 5,
+                        top: -5,
+                        child: IconButton(
+                          icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
+                          onPressed: () => _removeImage(index),
                         ),
+                      ),
                     ],
                   );
                 },
@@ -445,7 +557,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.camera_alt_outlined,
                         label: 'Cámara',
-                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.camera),
+                        onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -453,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
                         label: 'Galería',
-                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.gallery),
+                        onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.gallery),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -461,7 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.content_paste_outlined,
                         label: 'PEGAR',
-                        onPressed: _isLoading || _selectedItems.length >= 10 ? null : _handlePasteImage,
+                        onPressed: _selectedItems.length >= 10 ? null : _handlePasteImage,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -469,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
                         label: 'Closet',
-                        onPressed: _isLoading || _selectedItems.whereType<File>().length >= 10 ? null : _openCloset,
+                        onPressed: _selectedItems.whereType<File>().length >= 10 ? null : _openCloset,
                       ),
                     ),
                   ],
@@ -487,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VIRTUAL TRY-ON (${_selectedItems.length}/10)',
+                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VESTIR (${_selectedItems.length}/10)',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
