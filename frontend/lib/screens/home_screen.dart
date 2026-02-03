@@ -112,9 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<File> files = _selectedItems.whereType<File>().toList();
     final List<dynamic> garments = _selectedItems.where((item) => item is Map).toList();
 
-    final List<dynamic>? selectedFromCloset = await Navigator.push(
+    final dynamic result = await Navigator.push<dynamic>(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<dynamic>(
         builder: (context) => ClosetScreen(
           initialSelectedGarments: garments,
           externalCount: files.length,
@@ -122,12 +122,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (selectedFromCloset != null) {
-      setState(() {
-        _selectedItems.removeWhere((item) => item is Map);
-        _selectedItems.addAll(selectedFromCloset);
-        _resultPath = null;
-      });
+    if (result != null) {
+      if (result is List) {
+        // Legacy behavior: just picking garments
+        setState(() {
+          _selectedItems.removeWhere((item) => item is Map);
+          _selectedItems.addAll(result);
+          _resultPath = null;
+        });
+      } else if (result is Map && result['type'] == 'retake') {
+        // New behavior: retaking a whole outfit
+        setState(() {
+          _selectedItems.clear();
+          _selectedItems.addAll(result['garments']);
+          _personType = result['gender'];
+          _resultPath = result['resultUrl'];
+        });
+      }
     }
   }
 

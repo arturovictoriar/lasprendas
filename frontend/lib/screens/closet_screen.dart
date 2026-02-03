@@ -389,9 +389,40 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Outfit ${session['createdAt'].toString().substring(0, 10)}',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Outfit ${session['createdAt'].toString().substring(0, 10)}',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            if (!_isEditMode)
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final mannequinUrl = session['mannequinUrl'] ?? '';
+                                  final gender = mannequinUrl.contains('male_mannequin') ? 'male' : 'female';
+                                  
+                                  Navigator.pop(context, {
+                                    'type': 'retake',
+                                    'garments': session['garments'],
+                                    'gender': gender,
+                                    'resultUrl': session['resultUrl'],
+                                  });
+                                },
+                                icon: const Icon(Icons.tune, size: 16),
+                                label: const Text('RETOMAR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white10,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: const BorderSide(color: Colors.white24),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 10),
                         SizedBox(
