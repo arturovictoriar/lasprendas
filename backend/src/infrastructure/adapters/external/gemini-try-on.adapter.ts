@@ -27,6 +27,7 @@ export class GeminiTryOnAdapter implements ITryOnService {
         const mannequinImage = this.fileToGenerativePart(mannequinPath, 'image/png');
         const garmentImages = garments.map(g => this.fileToGenerativePart(g.originalUrl, 'image/png'));
 
+        const start = performance.now();
         let result;
         try {
             result = await model.generateContent([
@@ -43,6 +44,8 @@ export class GeminiTryOnAdapter implements ITryOnService {
         }
 
         const response = await result.response;
+        const duration = performance.now() - start;
+        console.log(`[GeminiTryOnAdapter] Gemini API call took ${(duration / 1000).toFixed(2)}s`);
 
         const resultFilename = `result-${Date.now()}.png`;
         const resultPath = path.join(process.cwd(), 'results', resultFilename);

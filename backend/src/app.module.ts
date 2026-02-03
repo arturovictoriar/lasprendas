@@ -95,7 +95,7 @@ import { TryOnProcessor } from './application/processors/try-on.processor';
     VirtualTryOnUseCase,
     AuthService,
     JwtStrategy,
-    TryOnProcessor,
+    ...(process.env.ENABLE_WORKER === 'true' ? [TryOnProcessor] : []),
     {
       provide: I_GARMENT_REPOSITORY,
       useClass: TypeOrmGarmentRepository,

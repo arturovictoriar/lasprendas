@@ -14,6 +14,7 @@ export class ImageProcessorService {
         // Ensure temp directory for normalization exists if needed, 
         // but here we use the same directory as input (usually uploads/ or temp/)
 
+        const start = performance.now();
         await sharp(inputPath)
             .resize({
                 width: this.TARGET_WIDTH,
@@ -23,6 +24,8 @@ export class ImageProcessorService {
             })
             .toFormat('png')
             .toFile(outputPath);
+        const duration = performance.now() - start;
+        console.log(`[ImageProcessorService] Normalization (sharp) took ${duration.toFixed(2)}ms for ${path.basename(inputPath)}`);
 
         return outputPath;
     }

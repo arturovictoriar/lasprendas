@@ -10,7 +10,9 @@ import { Garment } from '../../domain/entities/garment.entity';
 import * as path from 'path';
 
 @Injectable()
-@Processor('try-on')
+@Processor('try-on', {
+    concurrency: 5
+})
 export class TryOnProcessor extends WorkerHost {
     constructor(
         @Inject(I_TRY_ON_SERVICE)
@@ -23,6 +25,7 @@ export class TryOnProcessor extends WorkerHost {
     }
 
     async process(job: Job<any, any, string>): Promise<any> {
+        const jobStart = performance.now();
         const { sessionId, personType, userId } = job.data;
 
         try {
@@ -66,6 +69,9 @@ REALISM & CONSISTENCY:
             // Update session in DB
             session.resultUrl = resultFilename;
             await this.sessionRepository.save(session);
+
+            const totalDuration = performance.now() - jobStart;
+            console.info(`[TryOnProcessor] Job ${job.id} COMPLETED in ${(totalDuration / 1000).toFixed(2)}s`);
 
             return { resultFilename };
         } catch (error) {

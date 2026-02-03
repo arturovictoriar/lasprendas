@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { I_GARMENT_REPOSITORY } from '../../domain/ports/garment.repository.port';
@@ -22,6 +22,12 @@ export class VirtualTryOnUseCase {
     ) { }
 
     async execute(garmentImagePaths: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
+        // 0. Check for backpressure (Queue limit)
+        const counts = await this.tryOnQueue.getJobCounts();
+        if (counts.waiting > 15) {
+            throw new ServiceUnavailableException('El probador virtual está lleno. Por favor intenta en un par de minutos.');
+        }
+
         // 1. Get/Save garments
         const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
             const garment = new Garment(path, category, new Date(), userId);
