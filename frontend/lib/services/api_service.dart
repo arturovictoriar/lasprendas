@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.10.17:3000'; 
+  static const String baseUrl = 'http://192.168.10.18:3000'; 
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _headers() async {
@@ -44,38 +44,67 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> _getUploadParams(String filename, String mimeType) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storage/upload-params?filename=$filename&mimeType=$mimeType'),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to get upload params: ${response.body}');
+    }
+  }
+
+  static Future<void> _uploadFileToS3(String uploadUrl, File file, String mimeType) async {
+    final bytes = await file.readAsBytes();
+    final response = await http.put(
+      Uri.parse(uploadUrl),
+      headers: {
+        'Content-Type': mimeType,
+        'x-amz-acl': 'public-read', // Match what backend specified if needed
+      },
+      body: bytes,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upload to S3: ${response.body}');
+    }
+  }
+
   static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female'}) async {
-    final url = Uri.parse('$baseUrl/try-on');
-    final request = http.MultipartRequest('POST', url);
-    
-    final token = await _storage.read(key: 'jwt_token');
-    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    final List<String> garmentKeys = [];
 
-    request.fields['category'] = category;
-    request.fields['personType'] = personType;
-    if (garmentIds != null) {
-      for (var i = 0; i < garmentIds.length; i++) {
-        request.fields['garmentIds[$i]'] = garmentIds[i];
-      }
-    }
-    
+    // 1. Upload each image directly to S3
     for (var image in images) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'images',
-          image.path,
-          filename: basename(image.path),
-        ),
-      );
+      final filename = basename(image.path);
+      const mimeType = 'image/png'; // Default or detect
+
+      final params = await _getUploadParams(filename, mimeType);
+      final uploadUrl = params['uploadUrl'];
+      final key = params['key'];
+
+      await _uploadFileToS3(uploadUrl, image, mimeType);
+      garmentKeys.add(key);
     }
 
-    final response = await request.send();
-    final responseData = await response.stream.bytesToString();
+    // 2. Create try-on session with the keys
+    final response = await http.post(
+      Uri.parse('$baseUrl/try-on'),
+      headers: await _headers(),
+      body: json.encode({
+        'category': category,
+        'personType': personType,
+        'garmentKeys': garmentKeys,
+        'garmentIds': garmentIds,
+      }),
+    );
     
     if (response.statusCode == 201 || response.statusCode == 200) {
-      return json.decode(responseData);
+      return json.decode(response.body);
     } else {
-      throw Exception('Failed to upload garments: $responseData');
+      throw Exception('Failed to create try-on session: ${response.body}');
     }
   }
 
@@ -131,5 +160,12 @@ class ApiService {
     } else {
       throw Exception('Failed to fetch profile: ${response.body}');
     }
+  }
+  static String getFullImageUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http')) return path;
+    if (path.startsWith('results/')) return '$baseUrl/$path';
+    if (path.startsWith('uploads/')) return '$baseUrl/$path';
+    return '$baseUrl/$path';
   }
 }

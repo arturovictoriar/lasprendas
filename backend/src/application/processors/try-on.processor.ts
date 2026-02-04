@@ -7,7 +7,10 @@ import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.r
 import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
 import { ImageProcessorService } from '../services/image-processor.service';
 import { Garment } from '../../domain/entities/garment.entity';
+import { I_STORAGE_SERVICE, IStorageService } from '../../domain/ports/storage.service.port';
+import type { IStorageService as IStorageServiceInterface } from '../../domain/ports/storage.service.port';
 import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 @Processor('try-on', {
@@ -20,6 +23,8 @@ export class TryOnProcessor extends WorkerHost {
         @Inject(I_TRY_ON_SESSION_REPOSITORY)
         private readonly sessionRepository: ITryOnSessionRepository,
         private readonly imageProcessorService: ImageProcessorService,
+        @Inject(I_STORAGE_SERVICE)
+        private readonly storageService: IStorageServiceInterface,
     ) {
         super();
     }
@@ -32,17 +37,22 @@ export class TryOnProcessor extends WorkerHost {
             const session = await this.sessionRepository.findById(sessionId, userId);
             if (!session) throw new Error('Session not found');
 
-            // Normalize garments
-            const normalizedGarments = await Promise.all(session.garments.map(async (garment) => {
-                const normalizedPath = await this.imageProcessorService.normalizeForTryOn(garment.originalUrl);
-                return {
-                    ...garment,
-                    originalUrl: normalizedPath
-                };
-            }));
-
+            // 1. Prepare Mannequin (Local Asset -> Buffer)
             const anchorImage = personType === 'male' ? 'male_mannequin_anchor.png' : 'female_mannequin_anchor.png';
             const mannequinPath = path.join(process.cwd(), 'assets', anchorImage);
+            const mannequinBuffer = fs.readFileSync(mannequinPath);
+
+            // 2. Normalize garments (S3 -> Buffer -> Processed Buffer)
+            const normalizedGarmentBuffers = await Promise.all(session.garments.map(async (garment) => {
+                // originalUrl is now an S3 URL or we can derive the key
+                // For now, let's assume we store the KEY in the entity or parse it from URL
+                // Actually, in VirtualTryOnUseCase I saved the URL.
+                // It's better to store keys, but for now I'll extract key from URL or just use a helper
+                // The StorageAdapter knows how to handle its own URLs/keys.
+                const key = this.storageService.getKeyFromUrl(garment.originalUrl);
+                const buffer = await this.storageService.getFileBuffer(key);
+                return await this.imageProcessorService.normalizeForTryOn(buffer);
+            }));
 
             const prompt = `STRICT ADHERENCE TO ANCHOR IMAGE (Image 1): 
 The gray mannequin in Image 1 is your ABSOLUTE ANCHOR. 
@@ -63,17 +73,21 @@ REALISM & CONSISTENCY:
 - Maintain the EXACT resolution and aspect ratio of Image 1 in the output.
 - NO hallucinations, NO added people, NO changed environment.`.trim();
 
-            const resultPath = await this.tryOnService.performTryOn(mannequinPath, normalizedGarments as any, prompt);
-            const resultFilename = path.basename(resultPath);
+            // 3. Perform Try-On (Gemini)
+            const resultBuffer = await this.tryOnService.performTryOn(mannequinBuffer, normalizedGarmentBuffers, prompt);
 
-            // Update session in DB
-            session.resultUrl = resultFilename;
+            // 4. Upload Result to S3
+            const resultKey = `results/result-${Date.now()}.png`;
+            const resultUrl = await this.storageService.uploadFile(resultKey, resultBuffer, 'image/png');
+
+            // 5. Update session in DB
+            session.resultUrl = resultUrl;
             await this.sessionRepository.save(session);
 
             const totalDuration = performance.now() - jobStart;
             console.info(`[TryOnProcessor] Job ${job.id} COMPLETED in ${(totalDuration / 1000).toFixed(2)}s`);
 
-            return { resultFilename };
+            return { resultUrl };
         } catch (error) {
             console.error('Error in TryOnProcessor:', error);
             throw error;

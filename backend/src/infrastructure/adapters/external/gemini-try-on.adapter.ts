@@ -15,7 +15,7 @@ export class GeminiTryOnAdapter implements ITryOnService {
         this.genAI = new GoogleGenerativeAI(apiKey);
     }
 
-    async performTryOn(mannequinPath: string, garments: Garment[], prompt: string): Promise<string> {
+    async performTryOn(mannequinBuffer: Buffer, garmentBuffers: Buffer[], prompt: string): Promise<Buffer> {
         const model = this.genAI.getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
             generationConfig: {
@@ -24,15 +24,15 @@ export class GeminiTryOnAdapter implements ITryOnService {
             }
         });
 
-        const mannequinImage = this.fileToGenerativePart(mannequinPath, 'image/png');
-        const garmentImages = garments.map(g => this.fileToGenerativePart(g.originalUrl, 'image/png'));
+        const mannequinPart = this.bufferToGenerativePart(mannequinBuffer, 'image/png');
+        const garmentParts = garmentBuffers.map(b => this.bufferToGenerativePart(b, 'image/png'));
 
         const start = performance.now();
         let result;
         try {
             result = await model.generateContent([
-                mannequinImage,
-                ...garmentImages,
+                mannequinPart,
+                ...garmentParts,
                 prompt
             ]);
         } catch (error) {
@@ -47,35 +47,24 @@ export class GeminiTryOnAdapter implements ITryOnService {
         const duration = performance.now() - start;
         console.log(`[GeminiTryOnAdapter] Gemini API call took ${(duration / 1000).toFixed(2)}s`);
 
-        const resultFilename = `result-${Date.now()}.png`;
-        const resultPath = path.join(process.cwd(), 'results', resultFilename);
-
-        // Ensure results directory exists
-        const resultsDir = path.join(process.cwd(), 'results');
-        if (!fs.existsSync(resultsDir)) {
-            fs.mkdirSync(resultsDir, { recursive: true });
-        }
-
         // Extract image from parts
         const parts = response.candidates?.[0]?.content?.parts;
         const imagePart = parts?.find((p: any) => p.inlineData);
 
         if (imagePart && imagePart.inlineData) {
-            fs.writeFileSync(resultPath, Buffer.from(imagePart.inlineData.data, 'base64'));
+            return Buffer.from(imagePart.inlineData.data, 'base64');
         } else {
             // If no image returned, copy mannequin as fallback
             console.error('Gemini did not return an image part. Falling back to mannequin.');
             console.log('Full Gemini response:', JSON.stringify(response, null, 2));
-            fs.copyFileSync(mannequinPath, resultPath);
+            return mannequinBuffer;
         }
-
-        return resultPath;
     }
 
-    private fileToGenerativePart(path: string, mimeType: string) {
+    private bufferToGenerativePart(buffer: Buffer, mimeType: string) {
         return {
             inlineData: {
-                data: Buffer.from(fs.readFileSync(path)).toString('base64'),
+                data: buffer.toString('base64'),
                 mimeType
             },
         };

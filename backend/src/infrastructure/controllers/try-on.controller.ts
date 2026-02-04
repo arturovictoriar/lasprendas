@@ -1,8 +1,5 @@
-import { Controller, Post, UploadedFiles, UseInterceptors, Body, Get, Inject, Delete, Param, BadRequestException, UseGuards, Request } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { Controller, Post, Body, Get, Inject, Delete, Param, BadRequestException, UseGuards, Request } from '@nestjs/common';
 import { VirtualTryOnUseCase } from '../../application/use-cases/virtual-try-on.use-case';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { I_GARMENT_REPOSITORY } from '../../domain/ports/garment.repository.port';
 import type { IGarmentRepository } from '../../domain/ports/garment.repository.port';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
@@ -53,27 +50,18 @@ export class TryOnController {
     }
 
     @Post()
-    @UseInterceptors(FilesInterceptor('images', 10, {
-        storage: diskStorage({
-            destination: './uploads',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            }
-        })
-    }))
-    async uploadGarment(
-        @UploadedFiles() files: Express.Multer.File[],
+    async createSession(
         @Body('category') category: string,
         @Request() req: any,
+        @Body('garmentKeys') garmentKeys?: string[],
         @Body('garmentIds') garmentIds?: string | string[],
         @Body('personType') personType?: string
     ) {
-        const filePaths = files ? files.map(f => f.path) : [];
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
+        const keys = Array.isArray(garmentKeys) ? garmentKeys : (garmentKeys ? [garmentKeys] : []);
 
         try {
-            const sessionId = await this.virtualTryOnUseCase.execute(filePaths, category || 'clothing', req.user.userId, ids, personType || 'female');
+            const sessionId = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female');
             return {
                 success: true,
                 id: sessionId,

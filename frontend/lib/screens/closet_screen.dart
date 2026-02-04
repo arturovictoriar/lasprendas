@@ -275,7 +275,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: CachedNetworkImage(
-                          imageUrl: '${ApiService.baseUrl}/${garment['originalUrl']}',
+                          imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
                           fit: BoxFit.cover,
                           memCacheWidth: 200, // Small thumbnail size
                           placeholder: (context, url) => Container(color: Colors.white10),
@@ -353,7 +353,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           context,
                           MaterialPageRoute(
                             builder: (context) => OutfitDetailScreen(
-                              imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
+                              imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
                               tag: 'outfit-${session['id']}',
                             ),
                           ),
@@ -365,7 +365,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                       child: ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                         child: CachedNetworkImage(
-                          imageUrl: '${ApiService.baseUrl}/results/${session['resultUrl']}',
+                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
                           width: double.infinity,
                           height: 300,
                           fit: BoxFit.cover,
@@ -442,7 +442,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: CachedNetworkImage(
-                                    imageUrl: '${ApiService.baseUrl}/${g['originalUrl']}',
+                                    imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
                                     fit: BoxFit.cover,
                                     memCacheWidth: 100, // Very small thumbnail
                                     placeholder: (context, url) => Container(color: Colors.white10),
