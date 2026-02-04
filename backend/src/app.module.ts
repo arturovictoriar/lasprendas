@@ -20,6 +20,10 @@ import { TypeOrmTryOnSessionRepository } from './infrastructure/adapters/persist
 import { I_TRY_ON_SESSION_REPOSITORY } from './domain/ports/try-on-session.repository.port';
 import { ImageProcessorService } from './application/services/image-processor.service';
 
+import { I_STORAGE_SERVICE } from './domain/ports/storage.service.port';
+import { S3StorageAdapter } from './infrastructure/adapters/external/s3-storage.adapter';
+import { StorageController } from './infrastructure/controllers/storage.controller';
+
 import { UserSchema } from './infrastructure/adapters/persistence/user.schema';
 import { I_USER_REPOSITORY } from './domain/ports/user.repository.port';
 import { TypeOrmUserRepository } from './infrastructure/adapters/persistence/typeorm-user.repository';
@@ -35,12 +39,8 @@ import { TryOnProcessor } from './application/processors/try-on.processor';
       envFilePath: '../.env',
     }),
     ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'results'),
-      serveRoot: '/results',
-    }),
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
+      rootPath: join(process.cwd(), 'assets'),
+      serveRoot: '/assets',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -90,7 +90,7 @@ import { TryOnProcessor } from './application/processors/try-on.processor';
       ],
     }),
   ],
-  controllers: [TryOnController, AuthController],
+  controllers: [TryOnController, AuthController, StorageController],
   providers: [
     VirtualTryOnUseCase,
     AuthService,
@@ -111,6 +111,10 @@ import { TryOnProcessor } from './application/processors/try-on.processor';
     {
       provide: I_USER_REPOSITORY,
       useClass: TypeOrmUserRepository,
+    },
+    {
+      provide: I_STORAGE_SERVICE,
+      useClass: S3StorageAdapter,
     },
     ImageProcessorService,
   ],

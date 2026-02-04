@@ -377,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         maxScale: 4.0,
                         child: _resultPath != null
                             ? CachedNetworkImage(
-                                imageUrl: '${ApiService.baseUrl}/results/$_resultPath', 
+                                imageUrl: ApiService.getFullImageUrl(_resultPath), 
                                 key: ValueKey(_resultPath),
                                 fit: BoxFit.contain,
                                 memCacheHeight: 1200,
@@ -478,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               child: item is File 
                                                 ? Image.file(item, fit: BoxFit.cover)
                                                 : CachedNetworkImage(
-                                                    imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                                    imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
                                                     fit: BoxFit.cover,
                                                   ),
                                             ),
@@ -564,7 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: isFile 
                               ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
                               : CachedNetworkImage(
-                                  imageUrl: '${ApiService.baseUrl}/${item['originalUrl']}',
+                                  imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
                                   fit: BoxFit.cover,
                                   memCacheWidth: 200, 
                                   placeholder: (context, url) => Container(color: Colors.white10),

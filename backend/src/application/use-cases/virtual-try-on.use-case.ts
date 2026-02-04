@@ -8,6 +8,8 @@ import { TryOnSession } from '../../domain/entities/try-on-session.entity';
 import { I_TRY_ON_SESSION_REPOSITORY } from '../../domain/ports/try-on-session.repository.port';
 import type { ITryOnSessionRepository } from '../../domain/ports/try-on-session.repository.port';
 import { ImageProcessorService } from '../services/image-processor.service';
+import { I_STORAGE_SERVICE, IStorageService } from '../../domain/ports/storage.service.port';
+import type { IStorageService as IStorageServiceInterface } from '../../domain/ports/storage.service.port';
 
 @Injectable()
 export class VirtualTryOnUseCase {
@@ -19,9 +21,11 @@ export class VirtualTryOnUseCase {
         private readonly imageProcessorService: ImageProcessorService,
         @InjectQueue('try-on')
         private readonly tryOnQueue: Queue,
+        @Inject(I_STORAGE_SERVICE)
+        private readonly storageService: IStorageServiceInterface,
     ) { }
 
-    async execute(garmentImagePaths: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
+    async execute(garmentImageKeys: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
         // 0. Check for backpressure (Queue limit)
         const counts = await this.tryOnQueue.getJobCounts();
         if (counts.waiting > 15) {
@@ -29,8 +33,9 @@ export class VirtualTryOnUseCase {
         }
 
         // 1. Get/Save garments
-        const uploadedGarments = await Promise.all(garmentImagePaths.map(async (path) => {
-            const garment = new Garment(path, category, new Date(), userId);
+        const uploadedGarments = await Promise.all(garmentImageKeys.map(async (key) => {
+            const url = this.storageService.getFileUrl(key);
+            const garment = new Garment(url, category, new Date(), userId);
             return await this.garmentRepository.save(garment);
         }));
 

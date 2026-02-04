@@ -3,6 +3,7 @@ node_modules/
 .flutter-plugins
 .flutter-plugins-dependencies
 .dart_tool/
+.ssh_keys/
 build/
 
 # IDEs and Editors
@@ -14,7 +15,6 @@ build/
 
 # Environment variables
 .env
-.env.*
 
 # Backend specific
 backend/node_modules/
