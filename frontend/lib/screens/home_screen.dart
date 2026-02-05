@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
@@ -29,6 +31,73 @@ class _HomeScreenState extends State<HomeScreen> {
   String _personType = 'female'; // 'female' or 'male'
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
+  final _storage = const FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedState();
+  }
+
+  Future<void> _savePersistedState() async {
+    try {
+      final List<Map<String, dynamic>> serializedItems = _selectedItems.map((item) {
+        if (item is File) {
+          return {'type': 'file', 'path': item.path};
+        } else if (item is Map) {
+          return {'type': 'map', 'data': item};
+        }
+        return <String, dynamic>{};
+      }).toList();
+
+      await _storage.write(key: 'selected_garments', value: jsonEncode(serializedItems));
+      await _storage.write(key: 'person_type', value: _personType);
+    } catch (e) {
+      print('Error saving state: $e');
+    }
+  }
+
+  Future<void> _loadPersistedState() async {
+    try {
+      final savedGarments = await _storage.read(key: 'selected_garments');
+      final savedPersonType = await _storage.read(key: 'person_type');
+
+      if (savedPersonType != null) {
+        setState(() => _personType = savedPersonType);
+      }
+
+      if (savedGarments != null) {
+        final List<dynamic> decodedItems = jsonDecode(savedGarments);
+        final List<dynamic> restoredItems = [];
+
+        for (var item in decodedItems) {
+          if (item['type'] == 'file') {
+            final file = File(item['path']);
+            if (await file.exists()) {
+              restoredItems.add(file);
+            }
+          } else if (item['type'] == 'map') {
+            restoredItems.add(item['data']);
+          }
+        }
+
+        if (restoredItems.isNotEmpty) {
+          setState(() => _selectedItems.addAll(restoredItems));
+        }
+      }
+    } catch (e) {
+      print('Error loading state: $e');
+    }
+  }
+
+  Future<void> _clearPersistedState() async {
+    try {
+      await _storage.delete(key: 'selected_garments');
+      // We don't necessarily clear person_type as it's a preference
+    } catch (e) {
+      print('Error clearing state: $e');
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     if (_isLoading || _selectedItems.length >= 10) return;
@@ -41,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedItems.add(File(image.path));
           _resultPath = null;
         });
+        _savePersistedState();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -76,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedItems.add(file);
           _resultPath = null;
         });
+        _savePersistedState();
         
         // Success: Don't show SnackBar as requested
       } else {
@@ -130,6 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedItems.addAll(result);
           _resultPath = null;
         });
+        _savePersistedState();
       } else if (result is Map && result['type'] == 'retake') {
         // New behavior: retaking a whole outfit
         setState(() {
@@ -139,6 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _resultPath = result['resultUrl'];
         });
       }
+      _savePersistedState();
     }
   }
 
@@ -255,6 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _isLoading = false;
             _statusMessage = null;
           });
+          _clearPersistedState();
           return;
         }
       } catch (e) {
@@ -283,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _resultPath = null;
       }
     });
+    _savePersistedState();
   }
 
   @override
@@ -296,10 +371,13 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SizedBox(width: 12),
             GestureDetector(
-              onTap: () => setState(() {
-                _personType = 'female';
-                _resultPath = null;
-              }),
+              onTap: () {
+                setState(() {
+                  _personType = 'female';
+                  _resultPath = null;
+                });
+                _savePersistedState();
+              },
               child: Icon(
                 Icons.woman,
                 color: _personType == 'female' ? Colors.white : Colors.white24,
@@ -308,10 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 4),
             GestureDetector(
-              onTap: () => setState(() {
-                _personType = 'male';
-                _resultPath = null;
-              }),
+              onTap: () {
+                setState(() {
+                  _personType = 'male';
+                  _resultPath = null;
+                });
+                _savePersistedState();
+              },
               child: Icon(
                 Icons.man,
                 color: _personType == 'male' ? Colors.white : Colors.white24,
@@ -329,10 +410,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: GestureDetector(
-                onTap: () => setState(() {
-                  _selectedItems.clear();
-                  _resultPath = null;
-                }),
+                onTap: () {
+                  setState(() {
+                    _selectedItems.clear();
+                    _resultPath = null;
+                  });
+                  _clearPersistedState();
+                },
                 child: const Icon(Icons.refresh, color: Colors.white70, size: 26),
               ),
             ),
