@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.10.18:3000';
+  static const String baseUrl = 'http://beta-api.lasprendas.com';
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _headers() async {
