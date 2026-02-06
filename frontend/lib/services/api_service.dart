@@ -77,6 +77,8 @@ class ApiService {
     final List<String> garmentKeys = [];
     final List<String> garmentHashes = [];
     final List<String> finalGarmentIds = garmentIds != null ? List.from(garmentIds) : [];
+    // Track which garment corresponds to which input image
+    final List<dynamic> resolvedForImages = List.filled(images.length, null);
 
     // 1. Upload each image directly to S3
     for (var i = 0; i < images.length; i++) {
@@ -91,6 +93,7 @@ class ApiService {
       if (params['alreadyExists'] == true && params['garment'] != null) {
         // Skip upload, use existing garment ID
         finalGarmentIds.add(params['garment']['id']);
+        resolvedForImages[i] = params['garment'];
       } else {
         final uploadUrl = params['uploadUrl'];
         final key = params['key'];
@@ -100,6 +103,8 @@ class ApiService {
         if (hash != null) {
           garmentHashes.add(hash);
         }
+        // Mark as needing to be filled from backend response
+        resolvedForImages[i] = {'_tempKey': key};
       }
     }
 
@@ -117,7 +122,22 @@ class ApiService {
     );
     
     if (response.statusCode == 201 || response.statusCode == 200) {
-      return json.decode(response.body);
+      final responseData = json.decode(response.body);
+      final List<dynamic> uploaded = responseData['uploadedGarments'] ?? [];
+
+      // Map uploaded garments back to resolvedForImages
+      int uploadIdx = 0;
+      for (var i = 0; i < resolvedForImages.length; i++) {
+        if (resolvedForImages[i] is Map && resolvedForImages[i].containsKey('_tempKey')) {
+          if (uploadIdx < uploaded.length) {
+            resolvedForImages[i] = uploaded[uploadIdx];
+            uploadIdx++;
+          }
+        }
+      }
+      
+      responseData['resolvedGarments'] = resolvedForImages;
+      return responseData;
     } else {
       throw Exception('Failed to create try-on session: ${response.body}');
     }

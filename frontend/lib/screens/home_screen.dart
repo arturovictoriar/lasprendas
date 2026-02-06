@@ -303,15 +303,15 @@ class _HomeScreenState extends State<HomeScreen> {
           
           sessionId = response['id'] ?? response['sessionId'];
           if (sessionId == null) throw 'No se recibió el ID de la sesión';
-          // Update _selectedItems to replace Files with now-uploaded Garments
-          if (response['uploadedGarments'] != null && mounted) {
-            final List<dynamic> newGarments = response['uploadedGarments'];
+          // Update _selectedItems to replace Files with resolved Garments (new or matched by hash)
+          if (response['resolvedGarments'] != null && mounted) {
+            final List<dynamic> resolved = response['resolvedGarments'];
             setState(() {
               for (var i = 0; i < files.length; i++) {
                 final fileToRemove = files[i];
                 final index = _selectedItems.indexWhere((item) => item is File && item.path == fileToRemove.path);
-                if (index != -1 && i < newGarments.length) {
-                  final garment = Map<String, dynamic>.from(newGarments[i]);
+                if (index != -1 && i < resolved.length) {
+                  final garment = Map<String, dynamic>.from(resolved[i]);
                   garment['_localFilePath'] = fileToRemove.path; // Attach the local path
                   _selectedItems[index] = garment;
                 }
