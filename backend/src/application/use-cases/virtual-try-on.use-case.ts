@@ -25,7 +25,7 @@ export class VirtualTryOnUseCase {
         private readonly storageService: IStorageServiceInterface,
     ) { }
 
-    async execute(garmentImageKeys: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<string> {
+    async execute(garmentImageKeys: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female'): Promise<{ sessionId: string, uploadedGarments: Garment[] }> {
         // 0. Check for backpressure (Queue limit)
         const counts = await this.tryOnQueue.getJobCounts();
         if (counts.waiting > 15) {
@@ -65,6 +65,9 @@ export class VirtualTryOnUseCase {
             userId,
         });
 
-        return savedSession.id!;
+        return {
+            sessionId: savedSession.id!,
+            uploadedGarments
+        };
     }
 }

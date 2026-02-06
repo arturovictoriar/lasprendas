@@ -61,11 +61,12 @@ export class TryOnController {
         const keys = Array.isArray(garmentKeys) ? garmentKeys : (garmentKeys ? [garmentKeys] : []);
 
         try {
-            const sessionId = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female');
+            const { sessionId, uploadedGarments } = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female');
             return {
                 success: true,
                 id: sessionId,
-                sessionId: sessionId
+                sessionId: sessionId,
+                uploadedGarments: uploadedGarments
             };
         } catch (error) {
             if ((error as Error).message === 'No garments provided for try-on') {

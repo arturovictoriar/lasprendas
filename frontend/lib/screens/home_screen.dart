@@ -293,6 +293,22 @@ class _HomeScreenState extends State<HomeScreen> {
           
           sessionId = response['id'] ?? response['sessionId'];
           if (sessionId == null) throw 'No se recibió el ID de la sesión';
+          // Update _selectedItems to replace Files with now-uploaded Garments
+          if (response['uploadedGarments'] != null && mounted) {
+            final List<dynamic> newGarments = response['uploadedGarments'];
+            setState(() {
+              for (var i = 0; i < files.length; i++) {
+                final fileToRemove = files[i];
+                final index = _selectedItems.indexWhere((item) => item is File && item.path == fileToRemove.path);
+                if (index != -1 && i < newGarments.length) {
+                  final garment = Map<String, dynamic>.from(newGarments[i]);
+                  garment['_localFilePath'] = fileToRemove.path; // Attach the local path
+                  _selectedItems[index] = garment;
+                }
+              }
+            });
+          }
+
           success = true;
         } catch (e) {
           if (e.toString().contains('503') || e.toString().contains('lleno')) {
@@ -606,6 +622,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 : CachedNetworkImage(
                                                     imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
                                                     fit: BoxFit.cover,
+                                                    placeholder: (context, url) {
+                                                      if (item['_localFilePath'] != null) {
+                                                        final file = File(item['_localFilePath']);
+                                                        return Image.file(file, fit: BoxFit.cover);
+                                                      }
+                                                      return Container(color: Colors.white10);
+                                                    },
                                                   ),
                                             ),
                                           );
@@ -691,12 +714,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: isFile 
                               ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                              : CachedNetworkImage(
-                                  imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 200, 
-                                  placeholder: (context, url) => Container(color: Colors.white10),
-                                ),
+                                : CachedNetworkImage(
+                                    imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 200, 
+                                    placeholder: (context, url) {
+                                      if (item['_localFilePath'] != null) {
+                                        final file = File(item['_localFilePath']);
+                                        return Image.file(file, fit: BoxFit.cover, cacheWidth: 200);
+                                      }
+                                      return Container(color: Colors.white10);
+                                    },
+                                  ),
                         ),
                       ),
                       Positioned(
