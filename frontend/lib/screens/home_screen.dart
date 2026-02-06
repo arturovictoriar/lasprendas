@@ -52,6 +52,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await _storage.write(key: 'selected_garments', value: jsonEncode(serializedItems));
       await _storage.write(key: 'person_type', value: _personType);
+      
+      if (_isLoading && _processingItems.isNotEmpty) {
+        final List<Map<String, dynamic>> serializedProcessingItems = _processingItems.map((item) {
+          if (item is File) {
+            return {'type': 'file', 'path': item.path};
+          } else if (item is Map) {
+            return {'type': 'map', 'data': item};
+          }
+          return <String, dynamic>{};
+        }).toList();
+        await _storage.write(key: 'processing_items', value: jsonEncode(serializedProcessingItems));
+        await _storage.write(key: 'processing_person_type', value: _processingPersonType);
+      }
     } catch (e) {
       print('Error saving state: $e');
     }
@@ -61,6 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final savedGarments = await _storage.read(key: 'selected_garments');
       final savedPersonType = await _storage.read(key: 'person_type');
+      final savedSessionId = await _storage.read(key: 'processing_session_id');
+      final savedProcessingItems = await _storage.read(key: 'processing_items');
+      final savedProcessingPersonType = await _storage.read(key: 'processing_person_type');
 
       if (savedPersonType != null) {
         setState(() => _personType = savedPersonType);
@@ -85,6 +101,32 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() => _selectedItems.addAll(restoredItems));
         }
       }
+
+      if (savedSessionId != null && savedProcessingItems != null) {
+        final List<dynamic> decodedProcItems = jsonDecode(savedProcessingItems);
+        final List<dynamic> restoredProcItems = [];
+
+        for (var item in decodedProcItems) {
+          if (item['type'] == 'file') {
+            final file = File(item['path']);
+            if (await file.exists()) {
+              restoredProcItems.add(file);
+            }
+          } else if (item['type'] == 'map') {
+            restoredProcItems.add(item['data']);
+          }
+        }
+
+        if (restoredProcItems.isNotEmpty) {
+          setState(() {
+            _isLoading = true;
+            _processingItems = restoredProcItems;
+            _processingPersonType = savedProcessingPersonType ?? _personType;
+            _statusMessage = 'Retomando...';
+          });
+          _pollSessionStatus(savedSessionId, _processingPersonType);
+        }
+      }
     } catch (e) {
       print('Error loading state: $e');
     }
@@ -93,7 +135,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _clearPersistedState() async {
     try {
       await _storage.delete(key: 'selected_garments');
-      // We don't necessarily clear person_type as it's a preference
+      await _storage.delete(key: 'processing_session_id');
+      await _storage.delete(key: 'processing_items');
+      await _storage.delete(key: 'processing_person_type');
     } catch (e) {
       print('Error clearing state: $e');
     }
@@ -223,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
       _isRetrying = false;
       _isCancelled = false;
-      _statusMessage = 'Vistiendo...';
+      _statusMessage = 'Alistando...';
       _processingItems = List.from(_selectedItems); // Capture current selection
       _processingPersonType = requestedPersonType; // Store gender for UI
     });
@@ -267,10 +311,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (success && sessionId != null && !_isCancelled) {
         if (!mounted) return;
-        setState(() {
-          _isRetrying = false;
-          _statusMessage = 'Ajustando detalles...';
-        });
+        // Message will be handled by the polling loop sequence
+        await _storage.write(key: 'processing_session_id', value: sessionId.toString());
+        await _savePersistedState(); // Save processing_items and person_type
         await _pollSessionStatus(sessionId.toString(), requestedPersonType);
       }
     } catch (e) {
@@ -299,18 +342,17 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       
       final dressingMessages = [
-        'Ajustando costuras',
-        'Combinando texturas',
-        'En el probador',
-        'Espejito, espejito',
-        'Perfeccionando el look',
-        'Cerrando cremalleras',
-        'Planchando detalles',
-        'Buscando el ángulo perfecto',
-        'Preparando la pasarela',
-        'Estilizando tu figura',
-        'Iluminando el set',
-        'Capturando la esencia',
+        'Vistiendo',
+        'Ajustando',
+        'Retocando',
+        'Modelando',
+        'Estilando',
+        'Entallando',
+        'Puliendo',
+        'Combinando',
+        'Entelando',
+        'Cociendo',
+        'Probando',
       ];
       final currentMessage = dressingMessages[retries % dressingMessages.length];
       if (!mounted || _isCancelled) return;
@@ -497,14 +539,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   left: -4,
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
-                    opacity: _isLoading ? 1.0 : 0.0,
+                    opacity: (_isLoading && _statusMessage != null) ? 1.0 : 0.0,
                     curve: Curves.easeInOut,
                     child: AnimatedScale(
                       duration: const Duration(milliseconds: 300),
-                      scale: _isLoading ? 1.0 : 0.95,
+                      scale: (_isLoading && _statusMessage != null) ? 1.0 : 0.95,
                       curve: Curves.easeOutBack,
                       child: IgnorePointer(
-                        ignoring: !_isLoading,
+                        ignoring: !(_isLoading && _statusMessage != null),
                         child: Container(
                           width: 120, // Revertido al tamaño original que te gustaba
                           padding: const EdgeInsets.all(10),
@@ -585,7 +627,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _isRetrying ? 'ESPERANDO...' : 'VISTIENDO...',
+                                      _isRetrying 
+                                          ? 'Esperando...' 
+                                          : (_statusMessage ?? 'Alistando...').toUpperCase(),
                                       style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                       overflow: TextOverflow.ellipsis,
                                     ),

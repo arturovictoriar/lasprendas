@@ -27,6 +27,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _clearWorkbench() async {
+    await _storage.delete(key: 'selected_garments');
+    await _storage.delete(key: 'person_type');
+    await _storage.delete(key: 'processing_session_id');
+    await _storage.delete(key: 'processing_items');
+    await _storage.delete(key: 'processing_person_type');
+  }
+
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
@@ -38,6 +46,9 @@ class AuthProvider with ChangeNotifier {
       
       // Fetch profile to get name and email
       await fetchProfile();
+      
+      // Clear legacy workbench data for the new user
+      await _clearWorkbench();
       
       _isLoading = false;
       notifyListeners();
@@ -82,6 +93,7 @@ class AuthProvider with ChangeNotifier {
     await _storage.delete(key: 'jwt_token');
     await _storage.delete(key: 'user_name');
     await _storage.delete(key: 'user_email');
+    await _clearWorkbench();
     _token = null;
     _userName = null;
     _userEmail = null;
