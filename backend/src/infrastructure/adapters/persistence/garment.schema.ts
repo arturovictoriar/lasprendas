@@ -17,6 +17,9 @@ export class GarmentSchema {
     @CreateDateColumn()
     createdAt: Date;
 
+    @Column({ type: 'text', nullable: true })
+    hash: string | null;
+
     @Column({ type: 'timestamp', nullable: true })
     deletedAt: Date | null;
 }

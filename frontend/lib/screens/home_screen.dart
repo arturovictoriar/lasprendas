@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 import '../services/api_service.dart';
 import 'closet_screen.dart';
 import 'profile_screen.dart';
@@ -279,6 +280,14 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((item) => item['id'] as String)
           .toList();
 
+      // Calculate hashes for new files to enable pre-flight check
+      final List<String> hashes = [];
+      for (var file in files) {
+        final bytes = await file.readAsBytes();
+        final hash = sha256.convert(bytes).toString();
+        hashes.add(hash);
+      }
+
       bool success = false;
       String? sessionId;
 
@@ -288,7 +297,8 @@ class _HomeScreenState extends State<HomeScreen> {
             files, 
             'clothing', 
             garmentIds: garmentIds,
-            personType: requestedPersonType, // Usar el género capturado al inicio
+            personType: requestedPersonType,
+            hashes: hashes,
           );
           
           sessionId = response['id'] ?? response['sessionId'];

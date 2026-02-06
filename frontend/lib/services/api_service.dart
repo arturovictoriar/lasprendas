@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://beta-api.lasprendas.com';
+  static const String baseUrl = 'http://192.168.10.18:3000';
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _headers() async {
@@ -44,9 +44,9 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> _getUploadParams(String filename, String mimeType) async {
+  static Future<Map<String, dynamic>> _getUploadParams(String filename, String mimeType, {String? hash}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/storage/upload-params?filename=$filename&mimeType=$mimeType'),
+      Uri.parse('$baseUrl/storage/upload-params?filename=$filename&mimeType=$mimeType${hash != null ? '&hash=$hash' : ''}'),
       headers: await _headers(),
     );
 
@@ -73,20 +73,34 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female'}) async {
+  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female', List<String>? hashes}) async {
     final List<String> garmentKeys = [];
+    final List<String> garmentHashes = [];
+    final List<String> finalGarmentIds = garmentIds != null ? List.from(garmentIds) : [];
 
     // 1. Upload each image directly to S3
-    for (var image in images) {
+    for (var i = 0; i < images.length; i++) {
+      final image = images[i];
+      final hash = (hashes != null && i < hashes.length) ? hashes[i] : null;
+      
       final filename = basename(image.path);
       const mimeType = 'image/png'; // Default or detect
 
-      final params = await _getUploadParams(filename, mimeType);
-      final uploadUrl = params['uploadUrl'];
-      final key = params['key'];
+      final params = await _getUploadParams(filename, mimeType, hash: hash);
+      
+      if (params['alreadyExists'] == true && params['garment'] != null) {
+        // Skip upload, use existing garment ID
+        finalGarmentIds.add(params['garment']['id']);
+      } else {
+        final uploadUrl = params['uploadUrl'];
+        final key = params['key'];
 
-      await _uploadFileToS3(uploadUrl, image, mimeType);
-      garmentKeys.add(key);
+        await _uploadFileToS3(uploadUrl, image, mimeType);
+        garmentKeys.add(key);
+        if (hash != null) {
+          garmentHashes.add(hash);
+        }
+      }
     }
 
     // 2. Create try-on session with the keys
@@ -97,7 +111,8 @@ class ApiService {
         'category': category,
         'personType': personType,
         'garmentKeys': garmentKeys,
-        'garmentIds': garmentIds,
+        'garmentIds': finalGarmentIds,
+        'garmentHashes': garmentHashes,
       }),
     );
     

@@ -6,5 +6,6 @@ export class Garment {
         public readonly userId: string,
         public readonly deletedAt: Date | null = null,
         public readonly id?: string,
+        public readonly hash?: string | null,
     ) { }
 }

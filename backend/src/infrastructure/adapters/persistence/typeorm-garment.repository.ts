@@ -17,6 +17,7 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
         schema.originalUrl = garment.originalUrl;
         schema.category = garment.category;
         schema.userId = garment.userId;
+        schema.hash = garment.hash || null;
 
         const saved = await this.repository.save(schema);
         return this.mapToEntity(saved);
@@ -27,11 +28,25 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
     }
 
     private mapToEntity(schema: GarmentSchema): Garment {
-        return new Garment(schema.originalUrl, schema.category, schema.createdAt, schema.userId, schema.deletedAt, schema.id);
+        return new Garment(
+            schema.originalUrl,
+            schema.category,
+            schema.createdAt,
+            schema.userId,
+            schema.deletedAt,
+            schema.id,
+            schema.hash
+        );
     }
 
     async findById(id: string, userId: string): Promise<Garment | null> {
         const found = await this.repository.findOneBy({ id, userId });
+        if (!found) return null;
+        return this.mapToEntity(found);
+    }
+
+    async findByHash(hash: string, userId: string): Promise<Garment | null> {
+        const found = await this.repository.findOneBy({ hash, userId, deletedAt: IsNull() } as any);
         if (!found) return null;
         return this.mapToEntity(found);
     }
