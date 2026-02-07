@@ -68,147 +68,161 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: AutofillGroup(
-            child: Form(
-              key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'LAS PRENDAS',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                if (!_isLogin) ...[
-                  TextFormField(
-                    controller: _nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Name'),
-                    validator: (v) => v!.isEmpty ? 'Enter name' : null,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                TextFormField(
-                  controller: _emailController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Email'),
-                  keyboardType: TextInputType.emailAddress,
-                  textCapitalization: TextCapitalization.none,
-                  autofillHints: const [AutofillHints.email],
-                  validator: (v) => v!.isEmpty ? 'Enter email' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Password').copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.white70,
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  textCapitalization: TextCapitalization.none,
-                  autofillHints: const [AutofillHints.password],
-                  validator: (v) => v!.isEmpty ? 'Enter password' : null,
-                ),
-                if (!_isLogin) ...[
-                  const SizedBox(height: 16),
-                  Row(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/background-lasprendas.png'),
+              fit: BoxFit.cover,
+              opacity: 0.7, // Add opacity to ensure form readability
+            ),
+          ),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: AutofillGroup(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Checkbox(
-                          value: _acceptedTerms,
-                          activeColor: Colors.white,
-                          checkColor: Colors.black,
-                          side: const BorderSide(color: Colors.white24),
-                          onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
+                      const Text(
+                        'LAS PRENDAS',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 4,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: RichText(
-                          text: TextSpan(
-                            style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.4),
-                            children: [
-                              const TextSpan(text: 'Acepto los '),
-                              TextSpan(
-                                text: 'Términos y Condiciones',
-                                style: const TextStyle(
-                                  color: Colors.blueAccent,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                recognizer: TapGestureRecognizer()..onTap = _showTermsModal,
-                              ),
-                              const TextSpan(
-                                text: ', autorizando el procesamiento de mis fotos mediante IA para generar imágenes derivadas y reconociendo el acceso administrativo a mi contenido para fines de soporte y mejora del servicio.',
-                              ),
-                            ],
+                      const SizedBox(height: 48),
+                      if (!_isLogin) ...[
+                        TextFormField(
+                          controller: _nameController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: _inputDecoration('Name'),
+                          validator: (v) => v!.isEmpty ? 'Enter name' : null,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      TextFormField(
+                        controller: _emailController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _inputDecoration('Email'),
+                        keyboardType: TextInputType.emailAddress,
+                        textCapitalization: TextCapitalization.none,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (v) => v!.isEmpty ? 'Enter email' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _inputDecoration('Password').copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.white70,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
+                        ),
+                        textCapitalization: TextCapitalization.none,
+                        autofillHints: const [AutofillHints.password],
+                        validator: (v) => v!.isEmpty ? 'Enter password' : null,
+                      ),
+                      if (!_isLogin) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: Checkbox(
+                                value: _acceptedTerms,
+                                activeColor: Colors.white,
+                                checkColor: Colors.black,
+                                side: const BorderSide(color: Colors.white24),
+                                onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.4),
+                                  children: [
+                                    const TextSpan(text: 'Acepto los '),
+                                    TextSpan(
+                                      text: 'Términos y Condiciones',
+                                      style: const TextStyle(
+                                        color: Colors.blueAccent,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                      recognizer: TapGestureRecognizer()..onTap = _showTermsModal,
+                                    ),
+                                    const TextSpan(
+                                      text: ', autorizando el procesamiento de mis fotos mediante IA para generar imágenes derivadas y reconociendo el acceso administrativo a mi contenido para fines de soporte y mejora del servicio.',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 32),
+                      Consumer<AuthProvider>(
+                        builder: (context, auth, _) => ElevatedButton(
+                          onPressed: auth.isLoading || (!_isLogin && !_acceptedTerms) ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: auth.isLoading
+                              ? const CircularProgressIndicator(color: Colors.black)
+                              : Text(_isLogin ? 'LOGIN' : 'REGISTER'),
+                        ),
+                      ),
+                      if (_isLogin)
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                          ),
+                          child: const Text('Forgot Password?', style: TextStyle(color: Colors.white70)),
+                        ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _isLogin = !_isLogin;
+                          _acceptedTerms = false;
+                        }),
+                        child: Text(
+                          _isLogin ? 'Need an account? Register' : 'Have an account? Login',
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ),
                     ],
                   ),
-                ],
-                const SizedBox(height: 32),
-                Consumer<AuthProvider>(
-                  builder: (context, auth, _) => ElevatedButton(
-                    onPressed: auth.isLoading || (!_isLogin && !_acceptedTerms) ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: auth.isLoading
-                        ? const CircularProgressIndicator(color: Colors.black)
-                        : Text(_isLogin ? 'LOGIN' : 'REGISTER'),
-                  ),
                 ),
-                if (_isLogin)
-                  TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-                    ),
-                    child: const Text('Forgot Password?', style: TextStyle(color: Colors.white70)),
-                  ),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _isLogin = !_isLogin;
-                    _acceptedTerms = false;
-                  }),
-                  child: Text(
-                    _isLogin ? 'Need an account? Register' : 'Have an account? Login',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showTermsModal() {
     showModalBottomSheet(
@@ -282,6 +296,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: Colors.black.withOpacity(0.6),
       enabledBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: Colors.white24),
         borderRadius: BorderRadius.circular(12),
