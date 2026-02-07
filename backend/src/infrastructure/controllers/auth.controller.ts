@@ -20,6 +20,36 @@ export class AuthController {
         return await this.authService.login(body.email, body.password);
     }
 
+    @Post('verify')
+    @HttpCode(HttpStatus.OK)
+    async verify(@Body() body: any) {
+        return await this.authService.verify(body.email, body.code);
+    }
+
+    @Post('resend-code')
+    @HttpCode(HttpStatus.OK)
+    async resendCode(@Body() body: any) {
+        return await this.authService.resendCode(body.email);
+    }
+
+    @Post('forgot-password')
+    @HttpCode(HttpStatus.OK)
+    async forgotPassword(@Body() body: any) {
+        return await this.authService.forgotPassword(body.email);
+    }
+
+    @Post('verify-reset-code')
+    @HttpCode(HttpStatus.OK)
+    async verifyResetCode(@Body() body: any) {
+        return await this.authService.verifyResetCode(body.email, body.code);
+    }
+
+    @Post('reset-password')
+    @HttpCode(HttpStatus.OK)
+    async resetPassword(@Body() body: any) {
+        return await this.authService.resetPassword(body.email, body.code, body.password);
+    }
+
     @UseGuards(JwtAuthGuard)
     @Get('me')
     async getProfile(@Request() req: any) {

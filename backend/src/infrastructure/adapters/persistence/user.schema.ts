@@ -24,5 +24,25 @@ export const UserSchema = new EntitySchema<User>({
             type: 'timestamp',
             createDate: true,
         },
+        isVerified: {
+            type: 'boolean',
+            default: false,
+        },
+        lastCodeSentAt: {
+            type: 'timestamp',
+            nullable: true,
+        },
+        verificationAttempts: {
+            type: 'int',
+            default: 0,
+        },
+        blockedUntil: {
+            type: 'timestamp',
+            nullable: true,
+        },
+        termsAcceptedAt: {
+            type: 'timestamp',
+            nullable: true,
+        },
     },
 });

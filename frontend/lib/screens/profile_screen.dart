@@ -34,10 +34,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white24, width: 2),
               ),
-              child: const CircleAvatar(
-                radius: 50,
-                backgroundColor: Color(0xFF1E1E1E),
-                child: Icon(Icons.person, size: 60, color: Colors.white70),
+              child: Stack(
+                children: [
+                  const CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Color(0xFF1E1E1E),
+                    child: Icon(Icons.person, size: 60, color: Colors.white70),
+                  ),
+                  if (auth.isVerified)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.blueAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check, size: 16, color: Colors.white),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 30),

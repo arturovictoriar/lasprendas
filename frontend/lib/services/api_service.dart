@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://beta-api.lasprendas.com';
+  static const String baseUrl = 'http://172.20.10.6:3000';
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _headers() async {
@@ -41,6 +41,68 @@ class ApiService {
       return json.decode(response.body);
     } else {
       throw Exception('Registration failed: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> verify(String email, String code) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code}),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Verification failed: ${response.body}');
+    }
+  }
+
+  static Future<void> resendCode(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/resend-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to resend code: ${response.body}');
+    }
+  }
+
+  static Future<void> forgotPassword(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Forgot password request failed: ${response.body}');
+    }
+  }
+
+  static Future<void> verifyResetCode(String email, String code) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-reset-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Invalid or expired reset code: ${response.body}');
+    }
+  }
+
+  static Future<void> resetPassword(String email, String code, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code, 'password': newPassword}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Password reset failed: ${response.body}');
     }
   }
 
