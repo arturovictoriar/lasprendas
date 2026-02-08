@@ -32,7 +32,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String _personType = 'female'; // 'female' or 'male'
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   @override
   void initState() {
@@ -51,8 +54,17 @@ class _HomeScreenState extends State<HomeScreen> {
         return <String, dynamic>{};
       }).toList();
 
+      // Resilient write: delete before write to avoid iOS -25299 conflict
+      await _storage.delete(key: 'selected_garments');
       await _storage.write(key: 'selected_garments', value: jsonEncode(serializedItems));
+      
+      await _storage.delete(key: 'person_type');
       await _storage.write(key: 'person_type', value: _personType);
+
+      await _storage.delete(key: 'result_path');
+      if (_resultPath != null) {
+        await _storage.write(key: 'result_path', value: _resultPath!);
+      }
       
       if (_isLoading && _processingItems.isNotEmpty) {
         final List<Map<String, dynamic>> serializedProcessingItems = _processingItems.map((item) {
@@ -63,7 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return <String, dynamic>{};
         }).toList();
+
+        await _storage.delete(key: 'processing_items');
         await _storage.write(key: 'processing_items', value: jsonEncode(serializedProcessingItems));
+
+        await _storage.delete(key: 'processing_person_type');
         await _storage.write(key: 'processing_person_type', value: _processingPersonType);
       }
     } catch (e) {
@@ -81,6 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (savedPersonType != null) {
         setState(() => _personType = savedPersonType);
+      }
+
+      final savedResultPath = await _storage.read(key: 'result_path');
+      if (savedResultPath != null) {
+        setState(() => _resultPath = savedResultPath);
       }
 
       if (savedGarments != null) {
@@ -139,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _storage.delete(key: 'processing_session_id');
       await _storage.delete(key: 'processing_items');
       await _storage.delete(key: 'processing_person_type');
+      await _storage.delete(key: 'result_path');
     } catch (e) {
       print('Error clearing state: $e');
     }
@@ -241,10 +263,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null) {
       if (result is List) {
         // Legacy behavior: just picking garments
+        final currentGarmentIds = _selectedItems
+            .where((item) => item is Map)
+            .map((item) => item['id'].toString())
+            .toSet();
+        final newGarmentIds = result
+            .map((item) => item['id'].toString())
+            .toSet();
+
+        final hasChanged = currentGarmentIds.length != newGarmentIds.length ||
+            !currentGarmentIds.every((id) => newGarmentIds.contains(id));
+
         setState(() {
           _selectedItems.removeWhere((item) => item is Map);
           _selectedItems.addAll(result);
-          _resultPath = null;
+          if (hasChanged) {
+            _resultPath = null;
+          }
         });
         _savePersistedState();
       } else if (result is Map && result['type'] == 'retake') {
@@ -728,29 +763,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   return Stack(
                     children: [
-                      Container(
-                        width: 80,
-                        margin: const EdgeInsets.only(right: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: isFile 
-                              ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                                : CachedNetworkImage(
-                                    imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
-                                    fit: BoxFit.cover,
-                                    memCacheWidth: 200, 
-                                    placeholder: (context, url) {
-                                      if (item['_localFilePath'] != null) {
-                                        final file = File(item['_localFilePath']);
-                                        return Image.file(file, fit: BoxFit.cover, cacheWidth: 200);
-                                      }
-                                      return Container(color: Colors.white10);
-                                    },
-                                  ),
+                      GestureDetector(
+                        onLongPress: () {
+                          final heroTag = 'selected-${index}-${isFile ? item.path : item['id']}';
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OutfitDetailScreen(
+                                imageUrl: isFile ? null : ApiService.getFullImageUrl(item['originalUrl']),
+                                localFile: isFile ? item : null,
+                                tag: heroTag,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: 'selected-${index}-${isFile ? item.path : item['id']}',
+                          child: Container(
+                            width: 80,
+                            margin: const EdgeInsets.only(right: 15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: isFile 
+                                  ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
+                                    : CachedNetworkImage(
+                                        imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
+                                        fit: BoxFit.cover,
+                                        memCacheWidth: 200, 
+                                        placeholder: (context, url) {
+                                          if (item['_localFilePath'] != null) {
+                                            final file = File(item['_localFilePath']);
+                                            return Image.file(file, fit: BoxFit.cover, cacheWidth: 200);
+                                          }
+                                          return Container(color: Colors.white.withOpacity(0.05));
+                                        },
+                                      ),
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(

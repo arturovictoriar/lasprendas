@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
@@ -490,183 +491,103 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         Expanded(
           child: filtered.isEmpty 
             ? _buildNoSessionsMessage()
-            : ListView.builder(
+            : GridView.builder(
                 padding: const EdgeInsets.all(15),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 15,
+                  crossAxisSpacing: 15,
+                  childAspectRatio: 0.7,
+                ),
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final session = filtered[index];
+                  final isSelected = _selectedOutfitsForDelete.contains(session['id'].toString());
                   return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onLongPress: () {
-                      if (_isOutfitSelectionMode) {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                          tag: 'outfit-${session['id']}',
-                        )));
-                      }
-                    },
-                    onTap: () {
+                    onTap: () async {
                       if (_isOutfitSelectionMode) {
                         setState(() {
                           final id = session['id'].toString();
-                          if (_selectedOutfitsForDelete.contains(id)) {
+                          if (isSelected) {
                             _selectedOutfitsForDelete.remove(id);
                           } else {
                             _selectedOutfitsForDelete.add(id);
                           }
                         });
                       } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                          tag: 'outfit-${session['id']}',
-                        )));
+                        final result = await Navigator.push(
+                          context, 
+                          MaterialPageRoute(
+                            builder: (context) => OutfitManagementScreen(session: session)
+                          )
+                        );
+                        if (result != null && result is Map && result['type'] == 'retake') {
+                          Navigator.pop(context, result);
+                        }
                       }
                     },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: BorderRadius.circular(20),
-                        border: _isOutfitSelectionMode && _selectedOutfitsForDelete.contains(session['id'].toString())
-                            ? Border.all(color: Colors.white, width: 3)
-                            : Border.all(color: Colors.transparent, width: 3),
-                      ),
-                      child: Stack(
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Hero(
-                                tag: 'outfit-${session['id']}',
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
-                                  child: CachedNetworkImage(
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E1E),
+                            borderRadius: BorderRadius.circular(15),
+                            border: isSelected
+                                ? Border.all(color: Colors.blue, width: 2)
+                                : Border.all(color: Colors.white10, width: 1),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Hero(
+                              tag: 'outfit-${session['id']}',
+                              child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
+                                ? CachedNetworkImage(
                                     imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                                    width: double.infinity,
-                                    height: 300,
                                     fit: BoxFit.cover,
-                                    memCacheHeight: 600,
-                                    placeholder: (context, url) => Container(
-                                      height: 300,
-                                      color: Colors.white10,
-                                      child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
-                                    ),
-                                    errorWidget: (context, url, error) => Container(
-                                      height: 300,
-                                      color: Colors.white10,
-                                      child: const Icon(Icons.broken_image, color: Colors.white24, size: 50),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(15),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Outfit ${session['createdAt'].toString().substring(0, 10)}',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                        ),
-                                        if (!_isOutfitSelectionMode)
-                                          ElevatedButton.icon(
-                                            onPressed: () {
-                                              final mannequinUrl = session['mannequinUrl'] ?? '';
-                                              final gender = mannequinUrl.contains('male_mannequin') ? 'male' : 'female';
-                                              Navigator.pop(context, {
-                                                'type': 'retake',
-                                                'garments': session['garments'],
-                                                'gender': gender,
-                                                'resultUrl': session['resultUrl'],
-                                              });
-                                            },
-                                            icon: const Icon(Icons.tune, size: 16),
-                                            label: const Text('RETOMAR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white10,
-                                              foregroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                                side: const BorderSide(color: Colors.white24),
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            ),
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    memCacheWidth: 400,
+                                    placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                                    errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10),
+                                  )
+                                : Container(
+                                    color: Colors.white.withOpacity(0.05),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.auto_awesome, color: Colors.white24, size: 30),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Outfit ${index + 1}',
+                                            style: const TextStyle(color: Colors.white38, fontSize: 12),
                                           ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    SizedBox(
-                                      height: 50,
-                                      child: ListView.builder(
-                                        scrollDirection: Axis.horizontal,
-                                        physics: const ClampingScrollPhysics(),
-                                        itemCount: (session['garments'] as List).length,
-                                        itemBuilder: (context, gIndex) {
-                                          final g = session['garments'][gIndex];
-                                          return Container(
-                                            width: 50,
-                                            margin: const EdgeInsets.only(right: 8),
-                                            child: GestureDetector(
-                                              onLongPress: () {
-                                                if (_isOutfitSelectionMode) {
-                                                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                                                    imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                                                    tag: 'outfit-thumb-${session['id']}-${g['id']}',
-                                                  )));
-                                                }
-                                              },
-                                              onTap: () {
-                                                Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                                                  imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                                                  tag: 'outfit-thumb-${session['id']}-${g['id']}',
-                                                )));
-                                              },
-                                              child: Hero(
-                                                tag: 'outfit-thumb-${session['id']}-${g['id']}',
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                                                    fit: BoxFit.cover,
-                                                    memCacheWidth: 100,
-                                                    placeholder: (context, url) => Container(color: Colors.white10),
-                                                    errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  ),
+                            ),
                           ),
-                          if (_isOutfitSelectionMode)
-                            Positioned(
-                              top: 10,
-                              right: 10,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: _selectedOutfitsForDelete.contains(session['id'].toString()) ? Colors.blue : Colors.black45,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                                child: Icon(
-                                  _selectedOutfitsForDelete.contains(session['id'].toString()) ? Icons.check : null, 
-                                  color: Colors.white, 
-                                  size: 24
-                                ),
+                        ),
+                        if (_isOutfitSelectionMode)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue : Colors.black45,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: Icon(
+                                isSelected ? Icons.check : null,
+                                size: 14,
+                                color: isSelected ? Colors.white : Colors.transparent,
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -700,11 +621,167 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 }
 
+class OutfitManagementScreen extends StatelessWidget {
+  final Map<String, dynamic> session;
+
+  const OutfitManagementScreen({super.key, required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final garments = session['garments'] as List;
+    final mannequinUrl = session['mannequinUrl'] ?? '';
+    // Robust gender detection: check personType field first, then fallback to URL parsing.
+    // NOTE: Check for 'female' first because 'female' contains 'male'.
+    final gender = session['personType'] ?? 
+        (mannequinUrl.contains('female') ? 'female' : (mannequinUrl.contains('male') ? 'male' : 'female'));
+    final dateStr = session['createdAt'].toString().substring(0, 10);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text('OUTFIT $dateStr', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Main Result Image
+            GestureDetector(
+              onTap: () {
+                if (session['resultUrl'] != null) {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                    imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                    tag: 'outfit-detail-${session['id']}',
+                  )));
+                }
+              },
+              child: Hero(
+                tag: 'outfit-detail-${session['id']}',
+                child: Container(
+                  width: double.infinity,
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(25),
+                    child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                          errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
+                        )
+                      : const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 80)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            
+            // Retake Button
+            Container(
+              width: double.infinity,
+              height: 55,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)]),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context, {
+                    'type': 'retake',
+                    'garments': session['garments'],
+                    'gender': gender,
+                    'resultUrl': session['resultUrl'],
+                  });
+                },
+                icon: const Icon(Icons.tune, color: Colors.white),
+                label: const Text('RETOMAR ESTE OUTFIT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+
+            // Reference Garments
+            const Text(
+              'PRENDAS UTILIZADAS',
+              style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: garments.length,
+                itemBuilder: (context, index) {
+                  final g = garments[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                        imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                        tag: 'outfit-garment-${session['id']}-${g['id']}',
+                      )));
+                    },
+                    child: Hero(
+                      tag: 'outfit-garment-${session['id']}-${g['id']}',
+                      child: Container(
+                        width: 90,
+                        margin: const EdgeInsets.only(right: 15),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E1E),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: CachedNetworkImage(
+                            imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                            fit: BoxFit.cover,
+                            memCacheWidth: 200,
+                            placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                            errorWidget: (context, url, error) => const Icon(Icons.error, size: 20, color: Colors.white10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class OutfitDetailScreen extends StatelessWidget {
-  final String imageUrl;
+  final String? imageUrl;
+  final File? localFile;
   final String tag;
 
-  const OutfitDetailScreen({super.key, required this.imageUrl, required this.tag});
+  const OutfitDetailScreen({
+    super.key, 
+    this.imageUrl, 
+    this.localFile, 
+    required this.tag,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -718,15 +795,17 @@ class OutfitDetailScreen extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 1.0,
                 maxScale: 4.0,
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.contain,
-                  memCacheHeight: 1200, // Optimized for detail view
-                  placeholder: (context, url) => const Center(
-                    child: CircularProgressIndicator(color: Colors.white24)
-                  ),
-                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white24),
-                ),
+                child: localFile != null 
+                  ? Image.file(localFile!, fit: BoxFit.contain)
+                  : CachedNetworkImage(
+                      imageUrl: imageUrl!,
+                      fit: BoxFit.contain,
+                      memCacheHeight: 1200, // Optimized for detail view
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(color: Colors.white24)
+                      ),
+                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white24),
+                    ),
               ),
             ),
           ),

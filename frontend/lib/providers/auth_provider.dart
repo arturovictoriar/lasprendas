@@ -4,7 +4,10 @@ import 'dart:convert';
 import '../services/api_service.dart';
 
 class AuthProvider with ChangeNotifier {
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
   String? _token;
   String? _userName;
   String? _userEmail;
@@ -48,6 +51,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final result = await ApiService.login(email, password);
       _token = result['access_token'];
+      await _storage.delete(key: 'jwt_token');
       await _storage.write(key: 'jwt_token', value: _token);
       
       await fetchProfile();
@@ -70,8 +74,11 @@ class AuthProvider with ChangeNotifier {
       _userName = profile['name'];
       _userEmail = profile['email'];
       _isVerified = profile['isVerified'] ?? false;
+      await _storage.delete(key: 'user_name');
       await _storage.write(key: 'user_name', value: _userName);
+      await _storage.delete(key: 'user_email');
       await _storage.write(key: 'user_email', value: _userEmail);
+      await _storage.delete(key: 'is_verified');
       await _storage.write(key: 'is_verified', value: _isVerified.toString());
       notifyListeners();
     } catch (e) {
@@ -108,6 +115,7 @@ class AuthProvider with ChangeNotifier {
       // Manejar Seamless Login (Login automático tras verificar)
       if (result.containsKey('access_token')) {
         _token = result['access_token'];
+        await _storage.delete(key: 'jwt_token');
         await _storage.write(key: 'jwt_token', value: _token);
         await fetchProfile();
         await _clearWorkbench();
