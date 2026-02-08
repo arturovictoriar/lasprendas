@@ -31,6 +31,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _selectedInSession.addAll(widget.initialSelectedGarments);
     _loadData();
   }
@@ -166,7 +169,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       appBar: AppBar(
         title: Text(
           'CLOSET ($totalCount/10)', 
-          style: const TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -187,18 +190,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             onPressed: () => setState(() => _isEditMode = !_isEditMode),
             tooltip: _isEditMode ? 'Salir de edición' : 'Editar colección',
           ),
-          TextButton(
-            onPressed: _selectedInSession.isEmpty 
-              ? null 
-              : () => Navigator.pop(context, _selectedInSession),
-            child: Text(
-              'USAR', 
-              style: TextStyle(
-                color: _selectedInSession.isEmpty ? Colors.white24 : Colors.white, 
-                fontWeight: FontWeight.bold
-              )
+          if (_tabController.index == 0)
+            TextButton(
+              onPressed: totalCount == 0 
+                ? null 
+                : () => Navigator.pop(context, _selectedInSession),
+              child: Text(
+                'USAR', 
+                style: TextStyle(
+                  color: totalCount == 0 ? Colors.white24 : Colors.white, 
+                  fontWeight: FontWeight.bold
+                )
+              ),
             ),
-          ),
         ],
       ),
       body: _isLoading
@@ -215,6 +219,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Widget _buildLibraryTab() {
+    if (_garments.isEmpty) {
+      return const Center(child: Text('Aún no tienes prendas guardadas', style: TextStyle(color: Colors.white54)));
+    }
     return Column(
       children: [
         const SizedBox(height: 10),

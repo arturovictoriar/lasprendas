@@ -433,12 +433,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        leadingWidth: 80,
+        leadingWidth: 110,
         leading: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             const SizedBox(width: 12),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () {
                 setState(() {
                   _personType = 'female';
@@ -446,14 +447,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
                 _savePersistedState();
               },
-              child: Icon(
-                Icons.woman,
-                color: _personType == 'female' ? Colors.white : Colors.white24,
-                size: 26,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  Icons.woman,
+                  color: _personType == 'female' ? Colors.white : Colors.white24,
+                  size: 26,
+                ),
               ),
             ),
-            const SizedBox(width: 4),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () {
                 setState(() {
                   _personType = 'male';
@@ -461,45 +465,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
                 _savePersistedState();
               },
-              child: Icon(
-                Icons.man,
-                color: _personType == 'male' ? Colors.white : Colors.white24,
-                size: 26,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  Icons.man,
+                  color: _personType == 'male' ? Colors.white : Colors.white24,
+                  size: 26,
+                ),
               ),
             ),
           ],
         ),
-        title: const Text('LAS PRENDAS', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'LAS PRENDAS', 
+          style: TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         actions: [
           if (_selectedItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedItems.clear();
-                    _resultPath = null;
-                  });
-                  _clearPersistedState();
-                },
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _selectedItems.clear();
+                  _resultPath = null;
+                });
+                _clearPersistedState();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
                 child: const Icon(Icons.refresh, color: Colors.white70, size: 26),
               ),
             ),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),
             ),
-            child: const Icon(
-              Icons.person,
-              color: Colors.white70,
-              size: 26,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              child: const Icon(
+                Icons.person,
+                color: Colors.white70,
+                size: 26,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
