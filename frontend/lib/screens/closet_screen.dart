@@ -25,7 +25,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   final List<String> _categories = ['Todas', 'Camisas', 'Pantalones', 'Zapatos', 'Faldas', 'Chaquetas', 'Accesorios'];
   
   final List<dynamic> _selectedInSession = [];
-  bool _isEditMode = false;
+  List<dynamic> _confirmedGarments = [];
+  bool _isGarmentSelectionMode = false;
+  bool _isOutfitSelectionMode = false;
   final Set<String> _selectedGarmentsForDelete = {};
   final Set<String> _selectedOutfitsForDelete = {};
 
@@ -36,16 +38,32 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     _tabController.addListener(() {
       if (mounted) {
         setState(() {
-          // Reset edit mode and selections when moving between tabs
           if (_tabController.indexIsChanging) {
-            _isEditMode = false;
+            // Reset garments to initial state
+            _selectedInSession.clear();
+            _selectedInSession.addAll(_confirmedGarments);
+            
             _selectedGarmentsForDelete.clear();
+            for (var g in _confirmedGarments) {
+              _selectedGarmentsForDelete.add(g['id'].toString());
+            }
+            _isGarmentSelectionMode = _selectedInSession.isNotEmpty;
+
+            // Reset outfits
             _selectedOutfitsForDelete.clear();
+            _isOutfitSelectionMode = false;
           }
         });
       }
     });
     _selectedInSession.addAll(widget.initialSelectedGarments);
+    _confirmedGarments = List.from(widget.initialSelectedGarments);
+    if (_selectedInSession.isNotEmpty) {
+      _isGarmentSelectionMode = true;
+      for (var g in widget.initialSelectedGarments) {
+        _selectedGarmentsForDelete.add(g['id'].toString());
+      }
+    }
     _loadData();
   }
 
@@ -115,14 +133,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Future<void> _handleBulkDelete() async {
+    final isLibraryTab = _tabController.index == 0;
     final gCount = _selectedGarmentsForDelete.length;
     final sCount = _selectedOutfitsForDelete.length;
-    if (gCount == 0 && sCount == 0) return;
+
+    if (isLibraryTab && gCount == 0) return;
+    if (!isLibraryTab && sCount == 0) return;
 
     String message = '¿Eliminar ';
-    if (gCount > 0) message += '$gCount prenda${gCount > 1 ? 's' : ''}';
-    if (gCount > 0 && sCount > 0) message += ' y ';
-    if (sCount > 0) message += '$sCount outfit${sCount > 1 ? 's' : ''}';
+    if (isLibraryTab) {
+      message += '$gCount prenda${gCount > 1 ? 's' : ''}';
+    } else {
+      message += '$sCount outfit${sCount > 1 ? 's' : ''}';
+    }
     message += '?';
 
     final confirmed = await showDialog<bool>(
@@ -147,21 +170,27 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     if (confirmed == true) {
       setState(() => _isLoading = true);
       try {
-        for (final id in _selectedGarmentsForDelete) {
-          await ApiService.deleteGarment(id);
+        if (isLibraryTab) {
+          for (final id in _selectedGarmentsForDelete) {
+            await ApiService.deleteGarment(id);
+          }
+          setState(() {
+            _garments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
+            _selectedInSession.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
+            _confirmedGarments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
+            _selectedGarmentsForDelete.clear();
+            _isGarmentSelectionMode = false;
+          });
+        } else {
+          for (final id in _selectedOutfitsForDelete) {
+            await ApiService.deleteSession(id);
+          }
+          setState(() {
+            _sessions.removeWhere((s) => _selectedOutfitsForDelete.contains(s['id'].toString()));
+            _selectedOutfitsForDelete.clear();
+            _isOutfitSelectionMode = false;
+          });
         }
-        for (final id in _selectedOutfitsForDelete) {
-          await ApiService.deleteSession(id);
-        }
-        
-        setState(() {
-          _garments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
-          _selectedInSession.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
-          _sessions.removeWhere((s) => _selectedOutfitsForDelete.contains(s['id'].toString()));
-          _selectedGarmentsForDelete.clear();
-          _selectedOutfitsForDelete.clear();
-          _isEditMode = false;
-        });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al eliminar: $e')),
@@ -178,10 +207,11 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text(
-          'CLOSET', 
-          style: TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white70),
+          onPressed: () => Navigator.pop(context, _confirmedGarments),
         ),
+        title: const Text('CLOSET', style: TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -226,33 +256,78 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
               BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10, offset: const Offset(0, -2))
             ],
           ),
-          child: _isEditMode ? _buildEditModeActions() : _buildNormalModeActions(totalCount),
+          child: _tabController.index == 0 
+            ? (_isGarmentSelectionMode ? _buildEditModeActions() : _buildNormalModeActions(totalCount))
+            : (_isOutfitSelectionMode ? _buildEditModeActions() : _buildNormalModeActions(totalCount)),
         );
       },
     );
   }
 
   Widget _buildNormalModeActions(int totalCount) {
+    return Container(
+      height: 55,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: ElevatedButton.icon(
+        onPressed: () => setState(() {
+          if (_tabController.index == 0) {
+            _isGarmentSelectionMode = true;
+          } else {
+            _isOutfitSelectionMode = true;
+          }
+        }),
+        icon: const Icon(Icons.check_circle_outline, size: 20),
+        label: const Text('SELECCIONAR', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditModeActions() {
+    final totalCount = _selectedInSession.length + widget.externalCount;
     final isLibraryTab = _tabController.index == 0;
-    
+    final hasDeleteSelection = isLibraryTab ? _selectedGarmentsForDelete.isNotEmpty : _selectedOutfitsForDelete.isNotEmpty;
+
     return Row(
       children: [
+        TextButton(
+          onPressed: () => setState(() {
+            if (isLibraryTab) {
+              _isGarmentSelectionMode = false;
+              _selectedGarmentsForDelete.clear();
+              _selectedInSession.clear();
+              _confirmedGarments.clear();
+            } else {
+              _isOutfitSelectionMode = false;
+              _selectedOutfitsForDelete.clear();
+            }
+          }),
+          child: const Text('CANCELAR', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 8),
         Container(
+          height: 45,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(15),
+            color: hasDeleteSelection ? Colors.redAccent.withOpacity(0.2) : Colors.white10,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.white70),
-            onPressed: () => setState(() {
-              _isEditMode = true;
-              _selectedInSession.clear();
-            }),
-            tooltip: 'Entrar en modo borrado',
+            icon: Icon(Icons.delete_outline, color: hasDeleteSelection ? Colors.redAccent : Colors.white24),
+            onPressed: hasDeleteSelection ? _handleBulkDelete : null,
+            tooltip: 'Eliminar seleccionados',
           ),
         ),
-        if (isLibraryTab) ...[
-          const SizedBox(width: 15),
+        const SizedBox(width: 8),
+        if (isLibraryTab)
           Expanded(
             child: Container(
               height: 55,
@@ -264,73 +339,18 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 borderRadius: BorderRadius.circular(18),
               ),
               child: ElevatedButton(
-                onPressed: totalCount == 0 
-                  ? null 
-                  : () => Navigator.pop(context, _selectedInSession),
+                onPressed: totalCount == 0 ? null : () => Navigator.pop(context, _selectedInSession),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.check_circle_outline, size: 20),
-                    const SizedBox(width: 10),
-                    Text(
-                      'USAR PRENDAS ($totalCount/10)',
-                      style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                    ),
-                  ],
-                ),
+                child: Text('USAR ($totalCount/10)', style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-          ),
-        ] else
+          )
+        else
           const Spacer(),
-      ],
-    );
-  }
-
-  Widget _buildEditModeActions() {
-    final hasSelection = _selectedGarmentsForDelete.isNotEmpty || _selectedOutfitsForDelete.isNotEmpty;
-    final totalDelete = _selectedGarmentsForDelete.length + _selectedOutfitsForDelete.length;
-
-    return Row(
-      children: [
-        TextButton(
-          onPressed: () => setState(() {
-            _isEditMode = false;
-            _selectedGarmentsForDelete.clear();
-            _selectedOutfitsForDelete.clear();
-          }),
-          child: const Text('CANCELAR', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            height: 55,
-            decoration: BoxDecoration(
-              color: hasSelection ? Colors.redAccent : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: ElevatedButton.icon(
-              onPressed: hasSelection ? _handleBulkDelete : null,
-              icon: const Icon(Icons.delete, size: 20),
-              label: Text(
-                hasSelection ? 'ELIMINAR ($totalDelete)' : 'BORRAR SELECCIONADOS',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                disabledForegroundColor: Colors.white24,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -384,20 +404,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onLongPress: () {
-                  if (!_isEditMode) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OutfitDetailScreen(
-                          imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
-                          tag: 'garment-${garment['id']}',
-                        ),
-                      ),
-                    );
+                  if (_isGarmentSelectionMode) {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                      imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                      tag: 'garment-${garment['id']}',
+                    )));
                   }
                 },
                 onTap: () {
-                  if (_isEditMode) {
+                  if (_isGarmentSelectionMode) {
+                    _toggleSelection(garment);
                     setState(() {
                       final id = garment['id'].toString();
                       if (_selectedGarmentsForDelete.contains(id)) {
@@ -407,7 +423,10 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                       }
                     });
                   } else {
-                    _toggleSelection(garment);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                      imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                      tag: 'garment-${garment['id']}',
+                    )));
                   }
                 },
                 child: Stack(
@@ -415,12 +434,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _isEditMode 
-                            ? (_selectedGarmentsForDelete.contains(garment['id'].toString()) ? Colors.redAccent : Colors.white10)
-                            : (isSelected ? Colors.white : Colors.white10),
-                          width: 2,
-                        ),
+                        border: Border.all(color: isSelected ? Colors.white : Colors.white10, width: 2),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
@@ -429,31 +443,29 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           child: CachedNetworkImage(
                             imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
                             fit: BoxFit.cover,
-                            memCacheWidth: 200, // Small thumbnail size
+                            memCacheWidth: 200,
                             placeholder: (context, url) => Container(color: Colors.white10),
                             errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
                           ),
                         ),
                       ),
                     ),
-                    if (isSelected && !_isEditMode)
+                    if (_isGarmentSelectionMode)
                       Positioned(
-                        right: 5,
-                        top: 5,
+                        right: 8,
+                        top: 8,
                         child: Container(
                           padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                          child: const Icon(Icons.check, size: 16, color: Colors.black),
-                        ),
-                      ),
-                    if (_isEditMode && _selectedGarmentsForDelete.contains(garment['id'].toString()))
-                      Positioned(
-                        right: 5,
-                        top: 5,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                          child: const Icon(Icons.check, size: 16, color: Colors.white),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.blue : Colors.black45,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: Icon(
+                            isSelected ? Icons.check : null,
+                            size: 14,
+                            color: isSelected ? Colors.white : Colors.transparent,
+                          ),
                         ),
                       ),
                   ],
@@ -483,39 +495,18 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final session = filtered[index];
-
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (_isEditMode) {
-              setState(() {
-                final id = session['id'].toString();
-                if (_selectedOutfitsForDelete.contains(id)) {
-                  _selectedOutfitsForDelete.remove(id);
-                } else {
-                  _selectedOutfitsForDelete.add(id);
-                }
-              });
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(20),
-              border: _isEditMode && _selectedOutfitsForDelete.contains(session['id'].toString())
-                  ? Border.all(color: Colors.redAccent, width: 3)
-                  : Border.all(color: Colors.transparent, width: 3),
-            ),
-          child: Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
+                  return GestureDetector(
                     behavior: HitTestBehavior.opaque,
+                    onLongPress: () {
+                      if (_isOutfitSelectionMode) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                          tag: 'outfit-${session['id']}',
+                        )));
+                      }
+                    },
                     onTap: () {
-                      if (_isEditMode) {
+                      if (_isOutfitSelectionMode) {
                         setState(() {
                           final id = session['id'].toString();
                           if (_selectedOutfitsForDelete.contains(id)) {
@@ -525,156 +516,162 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           }
                         });
                       } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OutfitDetailScreen(
-                              imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                              tag: 'outfit-${session['id']}',
-                            ),
-                          ),
-                        );
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                          imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                          tag: 'outfit-${session['id']}',
+                        )));
                       }
                     },
-                    child: Hero(
-                      tag: 'outfit-${session['id']}',
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(17)),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
-                          child: CachedNetworkImage(
-                            imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                            width: double.infinity,
-                            height: 300,
-                            fit: BoxFit.cover,
-                            memCacheHeight: 600, // Medium size for outfit preview
-                            placeholder: (context, url) => Container(
-                              height: 300,
-                              color: Colors.white10,
-                              child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              height: 300,
-                              color: Colors.white10,
-                              child: const Icon(Icons.broken_image, color: Colors.white24, size: 50),
-                            ),
-                          ),
-                        ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(20),
+                        border: _isOutfitSelectionMode && _selectedOutfitsForDelete.contains(session['id'].toString())
+                            ? Border.all(color: Colors.white, width: 3)
+                            : Border.all(color: Colors.transparent, width: 3),
                       ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(15),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Outfit ${session['createdAt'].toString().substring(0, 10)}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
-                            if (!_isEditMode)
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  final mannequinUrl = session['mannequinUrl'] ?? '';
-                                  final gender = mannequinUrl.contains('male_mannequin') ? 'male' : 'female';
-                                  
-                                  Navigator.pop(context, {
-                                    'type': 'retake',
-                                    'garments': session['garments'],
-                                    'gender': gender,
-                                    'resultUrl': session['resultUrl'],
-                                  });
-                                },
-                                icon: const Icon(Icons.tune, size: 16),
-                                label: const Text('RETOMAR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white10,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: const BorderSide(color: Colors.white24),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          height: 50,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            physics: const ClampingScrollPhysics(), // Reduce conflict with tab swiping
-                            itemCount: (session['garments'] as List).length,
-                            itemBuilder: (context, gIndex) {
-                              final g = session['garments'][gIndex];
-                              return Container(
-                                width: 50,
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => OutfitDetailScreen(
-                                          imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                                          tag: 'outfit-thumb-${session['id']}-${g['id']}',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: Hero(
-                                    tag: 'outfit-thumb-${session['id']}-${g['id']}',
-                                    child: CachedNetworkImage(
-                                      imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                                      fit: BoxFit.cover,
-                                      memCacheWidth: 100, // Very small thumbnail
-                                      placeholder: (context, url) => Container(color: Colors.white10),
-                                      errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
+                      child: Stack(
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Hero(
+                                tag: 'outfit-${session['id']}',
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+                                  child: CachedNetworkImage(
+                                    imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                                    width: double.infinity,
+                                    height: 300,
+                                    fit: BoxFit.cover,
+                                    memCacheHeight: 600,
+                                    placeholder: (context, url) => Container(
+                                      height: 300,
+                                      color: Colors.white10,
+                                      child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      height: 300,
+                                      color: Colors.white10,
+                                      child: const Icon(Icons.broken_image, color: Colors.white24, size: 50),
                                     ),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(15),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Outfit ${session['createdAt'].toString().substring(0, 10)}',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                        if (!_isOutfitSelectionMode)
+                                          ElevatedButton.icon(
+                                            onPressed: () {
+                                              final mannequinUrl = session['mannequinUrl'] ?? '';
+                                              final gender = mannequinUrl.contains('male_mannequin') ? 'male' : 'female';
+                                              Navigator.pop(context, {
+                                                'type': 'retake',
+                                                'garments': session['garments'],
+                                                'gender': gender,
+                                                'resultUrl': session['resultUrl'],
+                                              });
+                                            },
+                                            icon: const Icon(Icons.tune, size: 16),
+                                            label: const Text('RETOMAR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white10,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                                side: const BorderSide(color: Colors.white24),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      height: 50,
+                                      child: ListView.builder(
+                                        scrollDirection: Axis.horizontal,
+                                        physics: const ClampingScrollPhysics(),
+                                        itemCount: (session['garments'] as List).length,
+                                        itemBuilder: (context, gIndex) {
+                                          final g = session['garments'][gIndex];
+                                          return Container(
+                                            width: 50,
+                                            margin: const EdgeInsets.only(right: 8),
+                                            child: GestureDetector(
+                                              onLongPress: () {
+                                                if (_isOutfitSelectionMode) {
+                                                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                                                    imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                                                    tag: 'outfit-thumb-${session['id']}-${g['id']}',
+                                                  )));
+                                                }
+                                              },
+                                              onTap: () {
+                                                Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                                                  imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                                                  tag: 'outfit-thumb-${session['id']}-${g['id']}',
+                                                )));
+                                              },
+                                              child: Hero(
+                                                tag: 'outfit-thumb-${session['id']}-${g['id']}',
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  child: CachedNetworkImage(
+                                                    imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                                                    fit: BoxFit.cover,
+                                                    memCacheWidth: 100,
+                                                    placeholder: (context, url) => Container(color: Colors.white10),
+                                                    errorWidget: (context, url, error) => const Icon(Icons.error, size: 16),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          if (_isOutfitSelectionMode)
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: _selectedOutfitsForDelete.contains(session['id'].toString()) ? Colors.blue : Colors.black45,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: Icon(
+                                  _selectedOutfitsForDelete.contains(session['id'].toString()) ? Icons.check : null, 
+                                  color: Colors.white, 
+                                  size: 24
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-              if (_isEditMode && _selectedOutfitsForDelete.contains(session['id'].toString()))
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
-                      ],
-                    ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 24),
-                  ),
-                ),
-            ],
-          ),
         ),
-      );
-    },
-  ),
-),
       ],
     );
   }
