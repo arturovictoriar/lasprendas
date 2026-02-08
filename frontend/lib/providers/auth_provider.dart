@@ -1,13 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
+
+  Future<void> _resilientWrite(String key, String value) async {
+    try {
+      await _storage.write(
+        key: key, 
+        value: value,
+        iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+      );
+    } on PlatformException catch (e) {
+      if (e.code == '-25299') {
+        await _storage.delete(
+          key: key,
+          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+        );
+        await _storage.write(
+          key: key, 
+          value: value,
+          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+  Future<void> _resilientDelete(String key) async {
+    await _storage.delete(
+      key: key,
+      iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+    );
+  }
+
   String? _token;
   String? _userName;
   String? _userEmail;
@@ -36,11 +68,12 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _clearWorkbench() async {
-    await _storage.delete(key: 'selected_garments');
-    await _storage.delete(key: 'person_type');
-    await _storage.delete(key: 'processing_session_id');
-    await _storage.delete(key: 'processing_items');
-    await _storage.delete(key: 'processing_person_type');
+    await _resilientDelete('selected_garments');
+    await _resilientDelete('person_type');
+    await _resilientDelete('processing_session_id');
+    await _resilientDelete('processing_items');
+    await _resilientDelete('processing_person_type');
+    await _resilientDelete('result_path');
   }
 
   Future<bool> login(String email, String password) async {
@@ -51,8 +84,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final result = await ApiService.login(email, password);
       _token = result['access_token'];
-      await _storage.delete(key: 'jwt_token');
-      await _storage.write(key: 'jwt_token', value: _token);
+      await _resilientWrite('jwt_token', _token!);
       
       await fetchProfile();
       await _clearWorkbench();
@@ -74,12 +106,9 @@ class AuthProvider with ChangeNotifier {
       _userName = profile['name'];
       _userEmail = profile['email'];
       _isVerified = profile['isVerified'] ?? false;
-      await _storage.delete(key: 'user_name');
-      await _storage.write(key: 'user_name', value: _userName);
-      await _storage.delete(key: 'user_email');
-      await _storage.write(key: 'user_email', value: _userEmail);
-      await _storage.delete(key: 'is_verified');
-      await _storage.write(key: 'is_verified', value: _isVerified.toString());
+      await _resilientWrite('user_name', _userName!);
+      await _resilientWrite('user_email', _userEmail!);
+      await _resilientWrite('is_verified', _isVerified.toString());
       notifyListeners();
     } catch (e) {
       _lastError = e.toString();
@@ -115,8 +144,7 @@ class AuthProvider with ChangeNotifier {
       // Manejar Seamless Login (Login automático tras verificar)
       if (result.containsKey('access_token')) {
         _token = result['access_token'];
-        await _storage.delete(key: 'jwt_token');
-        await _storage.write(key: 'jwt_token', value: _token);
+        await _resilientWrite('jwt_token', _token!);
         await fetchProfile();
         await _clearWorkbench();
       }
@@ -201,10 +229,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'jwt_token');
-    await _storage.delete(key: 'user_name');
-    await _storage.delete(key: 'user_email');
-    await _storage.delete(key: 'is_verified');
+    await _resilientDelete('jwt_token');
+    await _resilientDelete('user_name');
+    await _resilientDelete('user_email');
+    await _resilientDelete('is_verified');
     await _clearWorkbench();
     _token = null;
     _userName = null;

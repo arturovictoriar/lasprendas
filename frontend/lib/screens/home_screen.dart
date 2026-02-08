@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -33,9 +34,33 @@ class _HomeScreenState extends State<HomeScreen> {
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
   final _storage = const FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
+
+  Future<void> _resilientWrite(String key, String value) async {
+    try {
+      await _storage.write(
+        key: key, 
+        value: value,
+        iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+      );
+    } on PlatformException catch (e) {
+      if (e.code == '-25299') {
+        await _storage.delete(
+          key: key,
+          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+        );
+        await _storage.write(
+          key: key, 
+          value: value,
+          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -54,16 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
         return <String, dynamic>{};
       }).toList();
 
-      // Resilient write: delete before write to avoid iOS -25299 conflict
-      await _storage.delete(key: 'selected_garments');
-      await _storage.write(key: 'selected_garments', value: jsonEncode(serializedItems));
-      
-      await _storage.delete(key: 'person_type');
-      await _storage.write(key: 'person_type', value: _personType);
+      // Ultra-resilient write strategy
+      await _resilientWrite('selected_garments', jsonEncode(serializedItems));
+      await _resilientWrite('person_type', _personType);
 
-      await _storage.delete(key: 'result_path');
       if (_resultPath != null) {
-        await _storage.write(key: 'result_path', value: _resultPath!);
+        await _resilientWrite('result_path', _resultPath!);
+      } else {
+        await _storage.delete(key: 'result_path');
       }
       
       if (_isLoading && _processingItems.isNotEmpty) {
@@ -76,11 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
           return <String, dynamic>{};
         }).toList();
 
-        await _storage.delete(key: 'processing_items');
-        await _storage.write(key: 'processing_items', value: jsonEncode(serializedProcessingItems));
-
-        await _storage.delete(key: 'processing_person_type');
-        await _storage.write(key: 'processing_person_type', value: _processingPersonType);
+        await _resilientWrite('processing_items', jsonEncode(serializedProcessingItems));
+        await _resilientWrite('processing_person_type', _processingPersonType);
       }
     } catch (e) {
       print('Error saving state: $e');
@@ -156,11 +176,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _clearPersistedState() async {
     try {
-      await _storage.delete(key: 'selected_garments');
-      await _storage.delete(key: 'processing_session_id');
-      await _storage.delete(key: 'processing_items');
-      await _storage.delete(key: 'processing_person_type');
-      await _storage.delete(key: 'result_path');
+      await _storage.delete(key: 'selected_garments', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
+      await _storage.delete(key: 'processing_session_id', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
+      await _storage.delete(key: 'processing_items', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
+      await _storage.delete(key: 'processing_person_type', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
+      await _storage.delete(key: 'result_path', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
     } catch (e) {
       print('Error clearing state: $e');
     }
@@ -552,8 +572,18 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background-lasprendas.png'),
+            fit: BoxFit.cover,
+            opacity: 0.7,
+          ),
+        ),
+        child: Column(
+          children: [
           Expanded(
             flex: 4,
             child: Stack(
@@ -883,8 +913,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ActionButton extends StatelessWidget {
