@@ -16,6 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('MI PERFIL', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
@@ -32,8 +33,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             opacity: 0.7,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -103,6 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

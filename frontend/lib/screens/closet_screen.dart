@@ -208,6 +208,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white70),
@@ -236,7 +237,8 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             opacity: 0.7,
           ),
         ),
-        child: _isLoading
+        child: SafeArea(
+          child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : TabBarView(
                 controller: _tabController,
@@ -246,6 +248,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                   _buildOutfitsTab(),
                 ],
               ),
+        ),
       ),
       bottomNavigationBar: _buildBottomBar(),
     );
@@ -651,6 +654,7 @@ class OutfitManagementScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -671,123 +675,125 @@ class OutfitManagementScreen extends StatelessWidget {
             opacity: 0.7,
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Main Result Image
-              GestureDetector(
-                onTap: () {
-                  if (session['resultUrl'] != null) {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                      imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                      tag: 'outfit-detail-${session['id']}',
-                    )));
-                  }
-                },
-                child: Hero(
-                  tag: 'outfit-detail-${session['id']}',
-                  child: Container(
-                    width: double.infinity,
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(25),
-                      child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
-                            errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
-                          )
-                        : const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 80)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // Retake Button
-              Container(
-                width: double.infinity,
-                height: 55,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)]),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context, {
-                      'type': 'retake',
-                      'garments': session['garments'],
-                      'gender': gender,
-                      'resultUrl': session['resultUrl'],
-                    });
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Main Result Image
+                GestureDetector(
+                  onTap: () {
+                    if (session['resultUrl'] != null) {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                        imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                        tag: 'outfit-detail-${session['id']}',
+                      )));
+                    }
                   },
-                  icon: const Icon(Icons.tune, color: Colors.white),
-                  label: const Text('RETOMAR ESTE OUTFIT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  child: Hero(
+                    tag: 'outfit-detail-${session['id']}',
+                    child: Container(
+                      width: double.infinity,
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(25),
+                        child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                              errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
+                            )
+                          : const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 80)),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 40),
+                const SizedBox(height: 30),
+                
+                // Retake Button
+                Container(
+                  width: double.infinity,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)]),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context, {
+                        'type': 'retake',
+                        'garments': session['garments'],
+                        'gender': gender,
+                        'resultUrl': session['resultUrl'],
+                      });
+                    },
+                    icon: const Icon(Icons.tune, color: Colors.white),
+                    label: const Text('RETOMAR ESTE OUTFIT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
 
-              // Reference Garments
-              const Text(
-                'PRENDAS UTILIZADAS',
-                style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 120,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: garments.length,
-                  itemBuilder: (context, index) {
-                    final g = garments[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                          imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                // Reference Garments
+                const Text(
+                  'PRENDAS UTILIZADAS',
+                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 120,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: garments.length,
+                    itemBuilder: (context, index) {
+                      final g = garments[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                            imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                            tag: 'outfit-garment-${session['id']}-${g['id']}',
+                          )));
+                        },
+                        child: Hero(
                           tag: 'outfit-garment-${session['id']}-${g['id']}',
-                        )));
-                      },
-                      child: Hero(
-                        tag: 'outfit-garment-${session['id']}-${g['id']}',
-                        child: Container(
-                          width: 90,
-                          margin: const EdgeInsets.only(right: 15),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E),
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: CachedNetworkImage(
-                              imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
-                              fit: BoxFit.cover,
-                              memCacheWidth: 200,
-                              placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
-                              errorWidget: (context, url, error) => const Icon(Icons.error, size: 20, color: Colors.white10),
+                          child: Container(
+                            width: 90,
+                            margin: const EdgeInsets.only(right: 15),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1E1E),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: CachedNetworkImage(
+                                imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
+                                fit: BoxFit.cover,
+                                memCacheWidth: 200,
+                                placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                                errorWidget: (context, url, error) => const Icon(Icons.error, size: 20, color: Colors.white10),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),

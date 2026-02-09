@@ -284,7 +284,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // This allows the user to go to the closet and see/edit what is on the mannequin.
     final List<dynamic> sourceItems = _isLoading ? _processingItems : _selectedItems;
     
-    final List<File> files = sourceItems.whereType<File>().toList();
     final List<dynamic> initialGarments = sourceItems; // Pass everything
 
     final dynamic result = await Navigator.push<dynamic>(
@@ -495,6 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         leadingWidth: 110,
         leading: Row(
@@ -590,8 +590,9 @@ class _HomeScreenState extends State<HomeScreen> {
             opacity: 0.7,
           ),
         ),
-        child: Column(
-          children: [
+        child: SafeArea(
+          child: Column(
+            children: [
           Expanded(
             flex: 4,
             child: Stack(
@@ -922,8 +923,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     ),
-  );
-}
+    ),
+    );
+  }
 }
 
 class _ActionButton extends StatelessWidget {

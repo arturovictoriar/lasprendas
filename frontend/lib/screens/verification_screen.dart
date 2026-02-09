@@ -145,6 +145,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -163,8 +164,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
             opacity: 0.7,
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -283,6 +285,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -365,6 +368,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: Container(
         width: double.infinity,
@@ -376,8 +380,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             opacity: 0.7,
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
             child: Column(
@@ -454,6 +459,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
