@@ -5,12 +5,10 @@ import '../services/api_service.dart';
 
 class ClosetScreen extends StatefulWidget {
   final List<dynamic> initialSelectedGarments;
-  final int externalCount;
   
   const ClosetScreen({
     super.key, 
     this.initialSelectedGarments = const [],
-    this.externalCount = 0,
   });
 
   @override
@@ -46,7 +44,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             
             _selectedGarmentsForDelete.clear();
             for (var g in _confirmedGarments) {
-              _selectedGarmentsForDelete.add(g['id'].toString());
+              if (g is Map) {
+                _selectedGarmentsForDelete.add(g['id'].toString());
+              }
             }
             _isGarmentSelectionMode = _selectedInSession.isNotEmpty;
 
@@ -62,7 +62,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     if (_selectedInSession.isNotEmpty) {
       _isGarmentSelectionMode = true;
       for (var g in widget.initialSelectedGarments) {
-        _selectedGarmentsForDelete.add(g['id'].toString());
+        if (g is Map) {
+          _selectedGarmentsForDelete.add(g['id'].toString());
+        }
       }
     }
     _loadData();
@@ -115,16 +117,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   void _toggleSelection(dynamic garment) {
     setState(() {
-      final index = _selectedInSession.indexWhere((g) => g['id'].toString() == garment['id'].toString());
+      final index = _selectedInSession.indexWhere((g) => g is Map && g['id'].toString() == garment['id'].toString());
       if (index >= 0) {
         _selectedInSession.removeAt(index);
       } else {
-        if (_selectedInSession.length + widget.externalCount < 10) {
+        if (_selectedInSession.length < 10) {
           _selectedInSession.add(garment);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Ya tienes ${widget.externalCount + _selectedInSession.length} prendas. El máximo es 10.'),
+              content: Text('Ya tienes ${_selectedInSession.length} prendas. El máximo es 10.'),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -177,7 +179,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           }
           setState(() {
             _garments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
-            _selectedInSession.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
+            _selectedInSession.removeWhere((g) => g is Map && _selectedGarmentsForDelete.contains(g['id'].toString()));
             _confirmedGarments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
             _selectedGarmentsForDelete.clear();
             _isGarmentSelectionMode = false;
@@ -204,7 +206,6 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final totalCount = _selectedInSession.length + widget.externalCount;
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -246,11 +247,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 ],
               ),
       ),
-      bottomNavigationBar: _buildBottomBar(totalCount),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
-  Widget _buildBottomBar(int totalCount) {
+  Widget _buildBottomBar() {
+    final totalCount = _selectedInSession.length;
     return AnimatedBuilder(
       animation: _tabController,
       builder: (context, child) {
@@ -305,7 +307,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Widget _buildEditModeActions() {
-    final totalCount = _selectedInSession.length + widget.externalCount;
+    final totalCount = _selectedInSession.length;
     final isLibraryTab = _tabController.index == 0;
     final hasDeleteSelection = isLibraryTab ? _selectedGarmentsForDelete.isNotEmpty : _selectedOutfitsForDelete.isNotEmpty;
 
@@ -411,7 +413,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             itemCount: _filteredGarments.length,
             itemBuilder: (context, index) {
               final garment = _filteredGarments[index];
-              final isSelected = _selectedInSession.any((g) => g['id'].toString() == garment['id'].toString());
+              final isSelected = _selectedInSession.any((g) => g is Map && g['id'].toString() == garment['id'].toString());
               
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -567,11 +569,11 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          const Icon(Icons.auto_awesome, color: Colors.white24, size: 30),
+                                          const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 30),
                                           const SizedBox(height: 8),
-                                          Text(
-                                            'Outfit ${index + 1}',
-                                            style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                          const Text(
+                                            'Generando outfit...',
+                                            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
                                           ),
                                         ],
                                       ),

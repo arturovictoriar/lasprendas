@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
         iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
       );
     } on PlatformException catch (e) {
-      if (e.code == '-25299') {
+      if (e.code.toString().contains('-25299')) {
         await _storage.delete(
           key: key,
           iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
@@ -266,36 +266,44 @@ class _HomeScreenState extends State<HomeScreen> {
            path.contains('imgurl='); // Common in Google Image search results
   }
 
+  String _calculateGarmentsFingerprint(List<dynamic> items) {
+    final List<String> identifiers = items.map((item) {
+      if (item is Map) {
+        return 'garment_${item['id']}';
+      } else if (item is File) {
+        return 'file_${item.path}';
+      }
+      return 'unknown';
+    }).toList();
+    identifiers.sort();
+    return identifiers.join('|');
+  }
+
   Future<void> _openCloset() async {
-    final List<File> files = _selectedItems.whereType<File>().toList();
-    final List<dynamic> garments = _selectedItems.where((item) => item is Map).toList();
+    // If we are processing, the "real" current selection is what we are processing.
+    // This allows the user to go to the closet and see/edit what is on the mannequin.
+    final List<dynamic> sourceItems = _isLoading ? _processingItems : _selectedItems;
+    
+    final List<File> files = sourceItems.whereType<File>().toList();
+    final List<dynamic> initialGarments = sourceItems; // Pass everything
 
     final dynamic result = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute<dynamic>(
         builder: (context) => ClosetScreen(
-          initialSelectedGarments: garments,
-          externalCount: files.length,
+          initialSelectedGarments: initialGarments,
         ),
       ),
     );
 
     if (result != null) {
       if (result is List) {
-        // Legacy behavior: just picking garments
-        final currentGarmentIds = _selectedItems
-            .where((item) => item is Map)
-            .map((item) => item['id'].toString())
-            .toSet();
-        final newGarmentIds = result
-            .map((item) => item['id'].toString())
-            .toSet();
-
-        final hasChanged = currentGarmentIds.length != newGarmentIds.length ||
-            !currentGarmentIds.every((id) => newGarmentIds.contains(id));
+        final currentFingerprint = _calculateGarmentsFingerprint(sourceItems);
+        final newFingerprint = _calculateGarmentsFingerprint(result);
+        final hasChanged = currentFingerprint != newFingerprint;
 
         setState(() {
-          _selectedItems.removeWhere((item) => item is Map);
+          _selectedItems.clear();
           _selectedItems.addAll(result);
           if (hasChanged) {
             _resultPath = null;

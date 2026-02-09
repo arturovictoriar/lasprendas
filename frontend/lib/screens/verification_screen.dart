@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../providers/auth_provider.dart';
@@ -17,7 +18,9 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final _codeController = TextEditingController();
+  final List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
+  bool _isCodeComplete = false;
   final _formKey = GlobalKey<FormState>();
   late Timer _timer;
   int _secondsRemaining = 600; // 10 minutes
@@ -27,6 +30,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    for (var controller in _controllers) {
+      controller.text = '\u200B';
+    }
   }
 
   void _startTimer() {
@@ -42,9 +48,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void dispose() {
     _timer.cancel();
-    _codeController.dispose();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
     super.dispose();
   }
+
+  void _checkCodeCompletion() {
+    bool complete = true;
+    for (var controller in _controllers) {
+      if (controller.text.replaceAll('\u200B', '').isEmpty) {
+        complete = false;
+        break;
+      }
+    }
+    setState(() => _isCodeComplete = complete);
+  }
+
+  String get _fullCode => _controllers.map((c) => c.text.replaceAll('\u200B', '')).join();
 
   String get _timerText {
     final minutes = (_secondsRemaining / 60).floor();
@@ -58,14 +82,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     
     if (widget.isResetPassword) {
-      final success = await auth.validateResetCode(widget.email, _codeController.text);
+      final success = await auth.validateResetCode(widget.email, _fullCode);
       if (success && mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ResetPasswordScreen(
               email: widget.email,
-              code: _codeController.text,
+              code: _fullCode,
             ),
           ),
         );
@@ -75,7 +99,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         );
       }
     } else {
-      final success = await auth.verifyAccount(widget.email, _codeController.text);
+      final success = await auth.verifyAccount(widget.email, _fullCode);
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account verified and logged in successfully!')),
@@ -129,91 +153,132 @@ class _VerificationScreenState extends State<VerificationScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'VERIFICATION',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Enter the code sent to\n${widget.email}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  _timerText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _codeController,
-                  style: const TextStyle(color: Colors.white, fontSize: 24, letterSpacing: 8),
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  enableInteractiveSelection: false, // Prevents RenderEditable crash on long press
-                  decoration: InputDecoration(
-                    counterText: '',
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.white24),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.white),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (v) => (v == null || v.length < 6) ? 'Enter 6-digit code' : null,
-                ),
-                const SizedBox(height: 32),
-                Consumer<AuthProvider>(
-                  builder: (context, auth, _) => ElevatedButton(
-                    onPressed: (auth.isLoading || _failedAttempts >= 3) ? null : _verify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: auth.isLoading
-                        ? const CircularProgressIndicator(color: Colors.black)
-                        : Text(_failedAttempts >= 3 ? 'CODE INVALIDATED' : (widget.isResetPassword ? 'CONTINUE' : 'VERIFY')),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: _secondsRemaining > 0 ? null : _resend,
-                  child: Text(
-                    _secondsRemaining > 0 
-                      ? 'Resend available in $_timerText' 
-                      : 'Resend Code',
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background-lasprendas.png'),
+            fit: BoxFit.cover,
+            opacity: 0.7,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'VERIFICATION',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: _secondsRemaining > 0 ? Colors.white24 : Colors.white70
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'Enter the code sent to\n${widget.email}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    _timerText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(
+                      6,
+                      (index) => SizedBox(
+                        width: 45,
+                        height: 55,
+                        child: TextFormField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          maxLength: 2, // 1 for the placeholder, 1 for the digit
+                          decoration: InputDecoration(
+                            counterText: '',
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.white24),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.white),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            if (value.isEmpty) {
+                              // Placeholder was deleted -> Backspace
+                              if (index > 0) {
+                                _focusNodes[index - 1].requestFocus();
+                                _controllers[index - 1].text = '\u200B'; // Clear previous and keep placeholder
+                              }
+                              _controllers[index].text = '\u200B'; // Restore placeholder in current
+                            } else if (value.length > 1) {
+                              // Digit was added
+                              final digit = value.replaceAll('\u200B', '');
+                              _controllers[index].text = '\u200B$digit'; // Keep placeholder + digit
+                              if (index < 5) {
+                                _focusNodes[index + 1].requestFocus();
+                              } else {
+                                _focusNodes[index].unfocus();
+                              }
+                            }
+                            _checkCodeCompletion();
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Consumer<AuthProvider>(
+                    builder: (context, auth, _) => ElevatedButton(
+                      onPressed: (auth.isLoading || _failedAttempts >= 3 || !_isCodeComplete) ? null : _verify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: auth.isLoading
+                          ? const CircularProgressIndicator(color: Colors.black)
+                          : Text(_failedAttempts >= 3 ? 'CODE INVALIDATED' : (widget.isResetPassword ? 'CONTINUE' : 'VERIFY')),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: _secondsRemaining > 0 ? null : _resend,
+                    child: Text(
+                      _secondsRemaining > 0 
+                        ? 'Resend available in $_timerText' 
+                        : 'Resend Code',
+                      style: TextStyle(
+                        color: _secondsRemaining > 0 ? Colors.white24 : Colors.white70
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -301,80 +366,91 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'NEW PASSWORD',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _timerText,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white70,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background-lasprendas.png'),
+            fit: BoxFit.cover,
+            opacity: 0.7,
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'NEW PASSWORD',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 32),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('New Password').copyWith(
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white70,
+                const SizedBox(height: 16),
+                Text(
+                  _timerText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white70,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 32),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('New Password').copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white70,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
+                  textCapitalization: TextCapitalization.none,
+                  autofillHints: const [AutofillHints.newPassword],
+                  validator: (v) => v!.length < 6 ? 'Min 6 characters' : null,
                 ),
-                textCapitalization: TextCapitalization.none,
-                autofillHints: const [AutofillHints.newPassword],
-                validator: (v) => v!.length < 6 ? 'Min 6 characters' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: _obscureConfirmPassword,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Confirm Password').copyWith(
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white70,
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Confirm Password').copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white70,
+                      ),
+                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                     ),
-                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
+                  textCapitalization: TextCapitalization.none,
+                  validator: (v) => v!.isEmpty ? 'Confirm your password' : null,
+                ),
+                const SizedBox(height: 32),
+                Consumer<AuthProvider>(
+                  builder: (context, auth, _) => ElevatedButton(
+                    onPressed: auth.isLoading ? null : _reset,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: auth.isLoading
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text('RESET PASSWORD'),
                   ),
                 ),
-                textCapitalization: TextCapitalization.none,
-                validator: (v) => v!.isEmpty ? 'Confirm your password' : null,
-              ),
-              const SizedBox(height: 32),
-              Consumer<AuthProvider>(
-                builder: (context, auth, _) => ElevatedButton(
-                  onPressed: auth.isLoading ? null : _reset,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: auth.isLoading
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : const Text('RESET PASSWORD'),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -18,7 +18,7 @@ class AuthProvider with ChangeNotifier {
         iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
       );
     } on PlatformException catch (e) {
-      if (e.code == '-25299') {
+      if (e.code.toString().contains('-25299')) {
         await _storage.delete(
           key: key,
           iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
