@@ -1,43 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 class AuthProvider with ChangeNotifier {
-  final _storage = const FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final _storage = StorageService();
 
   Future<void> _resilientWrite(String key, String value) async {
-    try {
-      await _storage.write(
-        key: key, 
-        value: value,
-        iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-      );
-    } on PlatformException catch (e) {
-      if (e.code.toString().contains('-25299')) {
-        await _storage.delete(
-          key: key,
-          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-        );
-        await _storage.write(
-          key: key, 
-          value: value,
-          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-        );
-      } else {
-        rethrow;
-      }
-    }
+    await _storage.write(key: key, value: value);
   }
+  
   Future<void> _resilientDelete(String key) async {
-    await _storage.delete(
-      key: key,
-      iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-    );
+    await _storage.delete(key: key);
   }
 
   String? _token;

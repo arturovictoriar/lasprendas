@@ -2,14 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'storage_service.dart';
 
 class ApiService {
   static const String baseUrl = 'http://172.20.10.6:3000';
-  static const _storage = FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static final _storage = StorageService();
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'jwt_token');

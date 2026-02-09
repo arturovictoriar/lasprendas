@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +11,7 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 import 'closet_screen.dart';
 import 'profile_screen.dart';
 
@@ -33,33 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String _personType = 'female'; // 'female' or 'male'
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
-  final _storage = const FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final _storage = StorageService();
 
   Future<void> _resilientWrite(String key, String value) async {
-    try {
-      await _storage.write(
-        key: key, 
-        value: value,
-        iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-      );
-    } on PlatformException catch (e) {
-      if (e.code.toString().contains('-25299')) {
-        await _storage.delete(
-          key: key,
-          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-        );
-        await _storage.write(
-          key: key, 
-          value: value,
-          iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device),
-        );
-      } else {
-        rethrow;
-      }
-    }
+    await _storage.write(key: key, value: value);
   }
 
   @override
@@ -176,11 +153,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _clearPersistedState() async {
     try {
-      await _storage.delete(key: 'selected_garments', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
-      await _storage.delete(key: 'processing_session_id', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
-      await _storage.delete(key: 'processing_items', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
-      await _storage.delete(key: 'processing_person_type', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
-      await _storage.delete(key: 'result_path', iOptions: const IOSOptions(accessibility: KeychainAccessibility.unlocked_this_device));
+      await _storage.delete(key: 'selected_garments');
+      await _storage.delete(key: 'processing_session_id');
+      await _storage.delete(key: 'processing_items');
+      await _storage.delete(key: 'processing_person_type');
+      await _storage.delete(key: 'result_path');
     } catch (e) {
       print('Error clearing state: $e');
     }
