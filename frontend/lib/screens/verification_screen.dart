@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -80,6 +81,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context)!;
     
     if (widget.isResetPassword) {
       final success = await auth.validateResetCode(widget.email, _fullCode);
@@ -95,14 +97,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(auth.lastError ?? 'Invalid or expired code')),
+          SnackBar(content: Text(auth.lastError ?? (l10n.localeName == 'es' ? 'Código inválido o expirado' : 'Invalid or expired code'))),
         );
       }
     } else {
       final success = await auth.verifyAccount(widget.email, _fullCode);
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account verified and logged in successfully!')),
+          SnackBar(content: Text(l10n.localeName == 'es' ? '¡Cuenta verificada y sesión iniciada con éxito!' : 'Account verified and logged in successfully!')),
         );
         // Al estar logueado, el main.dart detectará auth.isAuthenticated y nos llevará al Home.
         // Solo necesitamos cerrar esta pantalla.
@@ -111,8 +113,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
         setState(() => _failedAttempts++);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(_failedAttempts >= 3 
-            ? 'Too many failed attempts. Please resend the code.' 
-            : (auth.lastError ?? 'Verification failed'))),
+            ? (l10n.localeName == 'es' ? 'Demasiados intentos fallidos. Por favor reenvía el código.' : 'Too many failed attempts. Please resend the code.')
+            : (auth.lastError ?? (l10n.localeName == 'es' ? 'Falló la verificación' : 'Verification failed')))),
         );
       }
     }
@@ -120,6 +122,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   Future<void> _resend() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context)!;
     
     final success = widget.isResetPassword 
       ? await auth.requestPasswordReset(widget.email)
@@ -136,13 +139,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? 'Code resent successfully!' : (auth.lastError ?? 'Failed to resend code'))),
+        SnackBar(content: Text(success 
+            ? l10n.resendSuccess 
+            : (auth.lastError ?? l10n.resendError))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
@@ -174,10 +180,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'VERIFICATION',
+                  Text(
+                    l10n.verificationTitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -186,7 +192,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Enter the code sent to\n${widget.email}',
+                    '${l10n.verificationInstruction}\n${widget.email}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
@@ -264,7 +270,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                       child: auth.isLoading
                           ? const CircularProgressIndicator(color: Colors.black)
-                          : Text(_failedAttempts >= 3 ? 'CODE INVALIDATED' : (widget.isResetPassword ? 'CONTINUE' : 'VERIFY')),
+                          : Text(_failedAttempts >= 3 ? l10n.codeInvalidated : (widget.isResetPassword ? l10n.continueButton : l10n.verify)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -272,8 +278,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     onPressed: _secondsRemaining > 0 ? null : _resend,
                     child: Text(
                       _secondsRemaining > 0 
-                        ? 'Resend available in $_timerText' 
-                        : 'Resend Code',
+                        ? l10n.resendAvailableIn(_timerText) 
+                        : l10n.resendCode,
                       style: TextStyle(
                         color: _secondsRemaining > 0 ? Colors.white24 : Colors.white70
                       ),
@@ -342,9 +348,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   Future<void> _reset() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
+        SnackBar(content: Text(l10n.passwordsDoNotMatch)),
       );
       return;
     }
@@ -354,18 +361,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password reset successful! Please login.')),
+        SnackBar(content: Text(l10n.passwordResetSuccess)),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to reset password.')),
+        SnackBar(content: Text(auth.lastError ?? l10n.resetPasswordError)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
@@ -388,10 +396,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'NEW PASSWORD',
+                Text(
+                  l10n.newPasswordTitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -409,7 +417,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('New Password').copyWith(
+                  decoration: _inputDecoration(l10n.newPasswordLabel).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -420,14 +428,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                   textCapitalization: TextCapitalization.none,
                   autofillHints: const [AutofillHints.newPassword],
-                  validator: (v) => v!.length < 6 ? 'Min 6 characters' : null,
+                  validator: (v) => v!.length < 6 ? l10n.minCharacters : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Confirm Password').copyWith(
+                  decoration: _inputDecoration(l10n.confirmPasswordLabel).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
@@ -437,7 +445,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                   ),
                   textCapitalization: TextCapitalization.none,
-                  validator: (v) => v!.isEmpty ? 'Confirm your password' : null,
+                  validator: (v) => v!.isEmpty ? l10n.confirmYourPassword : null,
                 ),
                 const SizedBox(height: 32),
                 Consumer<AuthProvider>(
@@ -451,7 +459,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                     child: auth.isLoading
                         ? const CircularProgressIndicator(color: Colors.black)
-                        : const Text('RESET PASSWORD'),
+                        : Text(l10n.resetPasswordButton),
                   ),
                 ),
               ],

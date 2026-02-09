@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import 'verification_screen.dart';
 
@@ -47,13 +48,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.lastError ?? 'Failed to request password reset.')),
+        SnackBar(content: Text(auth.lastError ?? AppLocalizations.of(context)!.codeRequestError)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
@@ -86,10 +88,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'RESET PASSWORD',
+                    Text(
+                      l10n.forgotPasswordTitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -97,10 +99,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Enter your email to receive\na verification code',
+                    Text(
+                      l10n.forgotPasswordInstruction,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                      style: const TextStyle(color: Colors.white70, fontSize: 16),
                     ),
                     const SizedBox(height: 48),
                     TextFormField(
@@ -108,7 +110,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       focusNode: _emailFocusNode,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        labelText: 'Email',
+                        labelText: l10n.email,
                         labelStyle: const TextStyle(color: Colors.white70),
                         enabledBorder: OutlineInputBorder(
                           borderSide: const BorderSide(color: Colors.white24),
@@ -122,7 +124,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       keyboardType: TextInputType.emailAddress,
                       textCapitalization: TextCapitalization.none,
                       autofillHints: const [AutofillHints.email],
-                      validator: (v) => v!.isEmpty ? 'Enter email' : null,
+                      validator: (v) => v!.isEmpty ? l10n.enterEmail : null,
                     ),
                     const SizedBox(height: 32),
                     Consumer<AuthProvider>(
@@ -136,7 +138,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         child: auth.isLoading
                             ? const CircularProgressIndicator(color: Colors.black)
-                            : const Text('SEND CODE'),
+                            : Text(l10n.sendCode),
                       ),
                     ),
                   ],

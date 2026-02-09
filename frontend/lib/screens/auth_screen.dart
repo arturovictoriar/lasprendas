@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
+import '../providers/language_provider.dart';
 import 'verification_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -33,6 +35,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context)!;
     bool success;
 
     if (_isLogin) {
@@ -55,7 +58,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     if (!success && mounted) {
-      String message = _isLogin ? 'Login failed' : 'Registration failed';
+      String message = _isLogin ? l10n.loginFailed : l10n.registerFailed;
       
       // Manejo específico para cuenta no verificada
       if (_isLogin && auth.lastError?.contains('Account not verified') == true) {
@@ -76,11 +79,23 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.translate, color: Colors.white70),
+              onPressed: () => context.read<LanguageProvider>().toggleLanguage(),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         body: Container(
           width: double.infinity,
           height: double.infinity,
@@ -102,10 +117,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'LAS PRENDAS',
+                        Text(
+                          l10n.appTitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -117,26 +132,26 @@ class _AuthScreenState extends State<AuthScreen> {
                           TextFormField(
                             controller: _nameController,
                             style: const TextStyle(color: Colors.white),
-                            decoration: _inputDecoration('Name'),
-                            validator: (v) => v!.isEmpty ? 'Enter name' : null,
+                            decoration: _inputDecoration(l10n.name),
+                            validator: (v) => v!.isEmpty ? l10n.enterName : null,
                           ),
                           const SizedBox(height: 16),
                         ],
                         TextFormField(
                           controller: _emailController,
                           style: const TextStyle(color: Colors.white),
-                          decoration: _inputDecoration('Email'),
+                          decoration: _inputDecoration(l10n.email),
                           keyboardType: TextInputType.emailAddress,
                           textCapitalization: TextCapitalization.none,
                           autofillHints: const [AutofillHints.email],
-                          validator: (v) => v!.isEmpty ? 'Enter email' : null,
+                          validator: (v) => v!.isEmpty ? l10n.enterEmail : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           style: const TextStyle(color: Colors.white),
-                          decoration: _inputDecoration('Password').copyWith(
+                          decoration: _inputDecoration(l10n.password).copyWith(
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -147,7 +162,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                           textCapitalization: TextCapitalization.none,
                           autofillHints: const [AutofillHints.password],
-                          validator: (v) => v!.isEmpty ? 'Enter password' : null,
+                          validator: (v) => v!.isEmpty ? l10n.enterPassword : null,
                         ),
                         if (!_isLogin) ...[
                           const SizedBox(height: 16),
@@ -170,9 +185,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                   text: TextSpan(
                                     style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.4),
                                     children: [
-                                      const TextSpan(text: 'Acepto los '),
+                                      TextSpan(text: l10n.acceptTermsPrefix),
                                       TextSpan(
-                                        text: 'Términos y Condiciones',
+                                        text: l10n.termsAndConditions,
                                         style: const TextStyle(
                                           color: Colors.blueAccent,
                                           fontWeight: FontWeight.bold,
@@ -180,8 +195,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                         ),
                                         recognizer: TapGestureRecognizer()..onTap = _showTermsModal,
                                       ),
-                                      const TextSpan(
-                                        text: ', autorizando el procesamiento de mis fotos mediante IA para generar imágenes derivadas y reconociendo el acceso administrativo a mi contenido para fines de soporte y mejora del servicio.',
+                                      TextSpan(
+                                        text: l10n.acceptTermsSuffix,
                                       ),
                                     ],
                                   ),
@@ -202,7 +217,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                             child: auth.isLoading
                                 ? const CircularProgressIndicator(color: Colors.black)
-                                : Text(_isLogin ? 'LOGIN' : 'REGISTER'),
+                                : Text(_isLogin ? l10n.login : l10n.register),
                           ),
                         ),
                         if (_isLogin)
@@ -213,7 +228,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 builder: (context) => ForgotPasswordScreen(email: _emailController.text),
                               ),
                             ),
-                            child: const Text('Forgot Password?', style: TextStyle(color: Colors.white70)),
+                            child: Text(l10n.forgotPassword, style: const TextStyle(color: Colors.white70)),
                           ),
                         TextButton(
                           onPressed: () => setState(() {
@@ -221,7 +236,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             _acceptedTerms = false;
                           }),
                           child: Text(
-                            _isLogin ? 'Need an account? Register' : 'Have an account? Login',
+                            _isLogin ? l10n.needAccount : l10n.haveAccount,
                             style: const TextStyle(color: Colors.white70),
                           ),
                         ),
@@ -238,6 +253,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _showTermsModal() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -261,9 +277,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Text(
-              'TÉRMINOS Y CONDICIONES',
-              style: TextStyle(
+            Text(
+              l10n.termsModalTitle,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -275,27 +291,12 @@ class _AuthScreenState extends State<AuthScreen> {
               child: ListView(
                 controller: scrollController,
                 padding: const EdgeInsets.all(24),
-                children: const [
+                children: [
                   Text(
-                    'Última actualización: 07 de febrero de 2026\n\n'
-                    'Al crear una cuenta en la aplicación Las Prendas, usted (el "Usuario") acepta los siguientes términos:\n\n'
-                    '1. NATURALEZA DEL SERVICIO\n'
-                    'Las Prendas es una plataforma de probador virtual que permite a los usuarios subir imágenes de prendas de vestir y fotografías personales para visualizar combinaciones de ropa mediante procesamiento digital.\n\n'
-                    '2. CONTENIDO GENERADO POR EL USUARIO\n'
-                    'El Usuario es el único responsable de las imágenes, fotografías y cualquier material (el "Contenido") que suba a la plataforma. El Usuario garantiza que tiene los derechos legales sobre dicho contenido y que no infringe derechos de terceros ni contiene material ilegal u ofensivo.\n\n'
-                    '3. ACCESO ADMINISTRATIVO Y PRIVACIDAD\n'
-                    'El Usuario reconoce y acepta que los administradores de la plataforma tienen acceso total al Contenido subido y generado dentro de la aplicación. Este acceso se utiliza exclusivamente para: Mantenimiento técnico, soporte al Usuario, moderación de contenido y mejora de algoritmos.\n\n'
-                    '4. PROCESAMIENTO DE IMÁGENES Y OBRAS DERIVADAS\n'
-                    'Al usar Las Prendas, el Usuario otorga una licencia expresa a la plataforma para: Procesamiento mediante IA para analizar fotos subidas y creación de nuevas imágenes que resulten de la combinación del contenido del Usuario.\n\n'
-                    '5. PROPIEDAD INTELECTUAL\n'
-                    'El Usuario conserva la propiedad de sus fotos originales. Las Prendas otorga al Usuario una licencia de uso personal sobre las imágenes generadas dentro de la app.\n\n'
-                    '6. USO ACEPTABLE\n'
-                    'Queda terminantemente prohibido subir contenido que incluya desnudez, contenido sexual explícito, imágenes de terceros sin consentimiento o material que incite al odio.\n\n'
-                    '7. LIMITACIÓN DE RESPONSABILIDAD\n'
-                    'Las Prendas no se hace responsable por el uso indebido que terceros puedan hacer de las imágenes si el usuario decide compartirlas fuera de la aplicación.',
-                    style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                    l10n.termsContent,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
                   ),
-                  SizedBox(height: 40),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),

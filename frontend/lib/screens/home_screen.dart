@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import 'closet_screen.dart';
@@ -141,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _isLoading = true;
             _processingItems = restoredProcItems;
             _processingPersonType = savedProcessingPersonType ?? _personType;
-            _statusMessage = 'Retomando...';
+            _statusMessage = AppLocalizations.of(context)!.loading; // "Retomando..." was here, "Cargando..." or dedicated key
           });
           _pollSessionStatus(savedSessionId, _processingPersonType);
         }
@@ -216,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se encontró una imagen o URL válida en el portapapeles')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.noGarmentsSaved)), // Fallback or dedicated message
           );
         }
       }
@@ -307,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
       _isRetrying = false;
       _isCancelled = false;
-      _statusMessage = 'Alistando...';
+      _statusMessage = AppLocalizations.of(context)!.dressingStatus1 + '...'; // "Alistando..." -> "Vistiendo..."
       _processingItems = List.from(_selectedItems); // Capture current selection
       _processingPersonType = requestedPersonType; // Store gender for UI
     });
@@ -364,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!mounted) return;
             setState(() {
               _isRetrying = true;
-              _statusMessage = 'El vestier está muy lleno hoy... Reintentando...';
+              _statusMessage = AppLocalizations.of(context)!.waiting; // "El vestier está muy lleno hoy... Reintentando..." -> "Esperando..."
             });
             await Future.delayed(const Duration(seconds: 5));
           } else {
@@ -406,18 +407,19 @@ class _HomeScreenState extends State<HomeScreen> {
     while (retries < maxRetries) {
       if (!mounted) return;
       
+      final l10n = AppLocalizations.of(context)!;
       final dressingMessages = [
-        'Vistiendo',
-        'Ajustando',
-        'Retocando',
-        'Modelando',
-        'Estilando',
-        'Entallando',
-        'Puliendo',
-        'Combinando',
-        'Entelando',
-        'Cociendo',
-        'Probando',
+        l10n.dressingStatus1,
+        l10n.dressingStatus2,
+        l10n.dressingStatus3,
+        l10n.dressingStatus4,
+        l10n.dressingStatus5,
+        l10n.dressingStatus6,
+        l10n.dressingStatus7,
+        l10n.dressingStatus8,
+        l10n.dressingStatus9,
+        l10n.dressingStatus10,
+        l10n.dressingStatus11,
       ];
       final currentMessage = dressingMessages[retries % dressingMessages.length];
       if (!mounted || _isCancelled) return;
@@ -452,7 +454,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _statusMessage = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El procesamiento está tardando más de lo esperado. Mira tus outfits luego.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.localeName == 'es' 
+            ? 'El procesamiento está tardando más de lo esperado. Mira tus outfits luego.' 
+            : 'Processing is taking longer than expected. Check your outfits later.')),
       );
     }
   }
@@ -469,6 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       extendBodyBehindAppBar: true,
@@ -516,9 +521,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        title: const Text(
-          'LAS PRENDAS', 
-          style: TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)
+        title: Text(
+          AppLocalizations.of(context)!.appTitle, 
+          style: const TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -603,13 +608,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: CircularProgressIndicator(color: Colors.white),
                                 ),
                                 errorWidget: (context, url, error) {
-                                  return const Column(
+                                  return Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
                                       SizedBox(height: 10),
                                       Text(
-                                        'Error cargando resultado',
+                                        AppLocalizations.of(context)!.errorLoadingResult,
                                         style: TextStyle(color: Colors.white70),
                                       ),
                                     ],
@@ -727,8 +732,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Expanded(
                                     child: Text(
                                       _isRetrying 
-                                          ? 'Esperando...' 
-                                          : (_statusMessage ?? 'Alistando...').toUpperCase(),
+                                          ? AppLocalizations.of(context)!.waiting 
+                                          : (_statusMessage ?? AppLocalizations.of(context)!.dressingStatus1 + '...').toUpperCase(),
                                       style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -747,11 +752,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       _processingItems = [];
                                     });
                                   },
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(top: 8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 8),
                                     child: Text(
-                                      'CANCELAR', 
-                                      style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
+                                      l10n.cancel, 
+                                      style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
                                     ),
                                   ),
                                 ),
@@ -846,7 +851,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.camera_alt_outlined,
-                        label: 'Cámara',
+                        label: l10n.camera,
                         onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
@@ -854,7 +859,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
-                        label: 'Galería',
+                        label: l10n.gallery,
                         onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.gallery),
                       ),
                     ),
@@ -862,7 +867,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.content_paste_outlined,
-                        label: 'PEGAR',
+                        label: l10n.paste,
                         onPressed: _selectedItems.length >= 10 ? null : _handlePasteImage,
                       ),
                     ),
@@ -870,7 +875,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
-                        label: 'Closet',
+                        label: l10n.closetButton,
                         onPressed: _selectedItems.whereType<File>().length >= 10 ? null : _openCloset,
                       ),
                     ),
@@ -889,7 +894,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VESTIR (${_selectedItems.length}/10)',
+                      _selectedItems.isEmpty 
+                          ? l10n.selectGarmentsPrompt 
+                          : l10n.dressButton(_selectedItems.length),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),

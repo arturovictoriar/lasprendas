@@ -1,0 +1,132 @@
+{
+  "@@locale": "es",
+  "appTitle": "LAS PRENDAS",
+  "login": "INICIAR SESIÓN",
+  "register": "REGISTRARSE",
+  "email": "Correo electrónico",
+  "password": "Contraseña",
+  "name": "Nombre",
+  "enterName": "Ingrese nombre",
+  "enterEmail": "Ingrese correo electrónico",
+  "enterPassword": "Ingrese contraseña",
+  "forgotPassword": "¿Olvidó su contraseña?",
+  "needAccount": "¿No tiene una cuenta? Regístrese",
+  "haveAccount": "¿Ya tiene una cuenta? Inicie sesión",
+  "termsAndConditions": "Términos y Condiciones",
+  "acceptTermsPrefix": "Acepto los ",
+  "acceptTermsSuffix": ", autorizando el procesamiento de mis fotos mediante IA para generar imágenes derivadas y reconociendo el acceso administrativo a mi contenido para fines de soporte y mejora del servicio.",
+  "termsModalTitle": "TÉRMINOS Y CONDICIONES",
+  "profileTitle": "MI PERFIL",
+  "profileNameLabel": "NOMBRE",
+  "profileEmailLabel": "CORREO ELECTRÓNICO",
+  "logout": "CERRAR SESIÓN",
+  "closetTitle": "CLOSET",
+  "myGarmentsTab": "MIS PRENDAS",
+  "myOutfitsTab": "MIS OUTFITS",
+  "selectButton": "SELECCIONAR",
+  "cancel": "CANCELAR",
+  "deleteSelected": "ELIMINAR",
+  "camera": "CÁMARA",
+  "gallery": "GALERÍA",
+  "paste": "PEGAR",
+  "closetButton": "CLOSET",
+  "selectGarmentsPrompt": "SELECCIONA PRENDAS",
+  "dressButton": "VESTIR ({count}/10)",
+  "@dressButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "useButton": "USAR ({count}/10)",
+  "@useButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "retakeOutfit": "RETOMAR ESTE OUTFIT",
+  "garmentsUsed": "PRENDAS UTILIZADAS",
+  "dressingStatus1": "Vistiendo",
+  "dressingStatus2": "Ajustando",
+  "dressingStatus3": "Retocando",
+  "dressingStatus4": "Modelando",
+  "dressingStatus5": "Estilando",
+  "dressingStatus6": "Entallando",
+  "dressingStatus7": "Puliendo",
+  "dressingStatus8": "Combinando",
+  "dressingStatus9": "Entelando",
+  "dressingStatus10": "Cociendo",
+  "dressingStatus11": "Probando",
+  "loading": "Cargando...",
+  "errorLoadingResult": "Error cargando resultado",
+  "waiting": "Esperando...",
+  "noGarmentsSaved": "Aún no tienes prendas guardadas",
+  "noOutfitsSaved": "Aún no tienes outfits guardados",
+  "allCategories": "Todas",
+  "shirtsCategory": "Camisas",
+  "pantsCategory": "Pantalones",
+  "shoesCategory": "Zapatos",
+  "skirtsCategory": "Faldas",
+  "jacketsCategory": "Chaquetas",
+  "accessoriesCategory": "Accesorios",
+  "selectGarments": "Seleccionar",
+  "confirmDeleteTitle": "Confirmar eliminación",
+  "deleteItemConfirm": "¿Eliminar {count} {itemType}?",
+  "@deleteItemConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "itemType": {
+        "type": "String"
+      }
+    }
+  },
+  "prenda": "prenda",
+  "prendas": "prendas",
+  "outfit": "outfit",
+  "outfits": "outfits",
+  "forgotPasswordTitle": "RECUPERAR CONTRASEÑA",
+  "forgotPasswordInstruction": "Ingresa tu email para recibir un código de verificación.",
+  "sendCode": "ENVIAR CÓDIGO",
+  "verificationTitle": "VERIFICACIÓN",
+  "verificationInstruction": "Ingresa el código de 6 dígitos enviado a",
+  "verify": "VERIFICAR",
+  "resendCode": "Reenviar código",
+  "codeWillExpire": "El código expirará en {time}",
+  "@codeWillExpire": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "newPasswordTitle": "NUEVA CONTRASEÑA",
+  "newPasswordLabel": "Nueva Contraseña",
+  "confirmPasswordLabel": "Confirmar Contraseña",
+  "resetPasswordButton": "RESETEAR CONTRASEÑA",
+  "passwordsDoNotMatch": "Las contraseñas no coinciden",
+  "passwordResetSuccess": "¡Contraseña restablecida con éxito! Por favor inicie sesión.",
+  "minCharacters": "Mínimo 6 caracteres",
+  "confirmYourPassword": "Confirma tu contraseña",
+  "codeInvalidated": "CÓDIGO INVALIDADO",
+  "resendAvailableIn": "Reenvío disponible en {time}",
+  "@resendAvailableIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "continueButton": "CONTINUAR",
+  "resendSuccess": "¡Código reenviado con éxito!",
+  "resendError": "Error al reenviar el código",
+  "resetPasswordError": "Falló al restablecer la contraseña.",
+  "codeRequestError": "Error al enviar el código",
+  "loginFailed": "Error al iniciar sesión",
+  "registerFailed": "Error al registrarse",
+  "termsContent": "Última actualización: 07 de febrero de 2026\n\nAl crear una cuenta en la aplicación Las Prendas, usted (el \"Usuario\") acepta los siguientes términos:\n\n1. NATURALEZA DEL SERVICIO\nLas Prendas es una plataforma de probador virtual que permite a los usuarios subir imágenes de prendas de vestir y fotografías personales para visualizar combinaciones de ropa mediante procesamiento digital.\n\n2. CONTENIDO GENERADO POR EL USUARIO\nEl Usuario es el único responsable de las imágenes, fotografías y cualquier material (el \"Contenido\") que suba a la plataforma. El Usuario garantiza que tiene los derechos legales sobre dicho contenido y que no infringe derechos de terceros ni contiene material ilegal u ofensivo.\n\n3. ACCESO ADMINISTRATIVO Y PRIVACIDAD\nEl Usuario reconoce y acepta que los administradores de la plataforma tienen acceso total al Contenido subido y generado dentro de la aplicación. Este acceso se utiliza exclusivamente para: Mantenimiento técnico, soporte al Usuario, moderación de contenido y mejora de algoritmos.\n\n4. PROCESAMIENTO DE IMÁGENES Y OBRAS DERIVADAS\nAl usar Las Prendas, el Usuario otorga una licencia expresa a la plataforma para: Procesamiento mediante IA para analizar fotos subidas y creación de nuevas imágenes que resulten de la combinación del contenido del Usuario.\n\n5. PROPIEDAD INTELECTUAL\nEl Usuario conserva la propiedad de sus fotos originales. Las Prendas otorga al Usuario una licencia de uso personal sobre las imágenes generadas dentro de la app.\n\n6. USO ACEPTABLE\nQueda terminantemente prohibido subir contenido que incluya desnudez, contenido sexual explícito, imágenes de terceros sin consentimiento o material que incite al odio.\n\n7. LIMITACIÓN DE RESPONSABILIDAD\nLas Prendas no se hace responsable por el uso indebido que terceros puedan hacer de las imágenes si el usuario decide compartirlas fuera de la aplicación."
+}

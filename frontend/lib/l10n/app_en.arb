@@ -1,0 +1,132 @@
+{
+  "@@locale": "en",
+  "appTitle": "LAS PRENDAS",
+  "login": "LOGIN",
+  "register": "REGISTER",
+  "email": "Email",
+  "password": "Password",
+  "name": "Name",
+  "enterName": "Enter name",
+  "enterEmail": "Enter email",
+  "enterPassword": "Enter password",
+  "forgotPassword": "Forgot Password?",
+  "needAccount": "Need an account? Register",
+  "haveAccount": "Have an account? Login",
+  "termsAndConditions": "Terms and Conditions",
+  "acceptTermsPrefix": "I accept the ",
+  "acceptTermsSuffix": ", authorizing the processing of my photos via AI to generate derivative images and acknowledging administrative access to my content for support and service improvement purposes.",
+  "termsModalTitle": "TERMS AND CONDITIONS",
+  "profileTitle": "MY PROFILE",
+  "profileNameLabel": "NAME",
+  "profileEmailLabel": "EMAIL",
+  "logout": "LOGOUT",
+  "closetTitle": "CLOSET",
+  "myGarmentsTab": "MY GARMENTS",
+  "myOutfitsTab": "MY OUTFITS",
+  "selectButton": "SELECT",
+  "cancel": "CANCEL",
+  "deleteSelected": "DELETE",
+  "camera": "CAMERA",
+  "gallery": "GALLERY",
+  "paste": "PASTE",
+  "closetButton": "CLOSET",
+  "selectGarmentsPrompt": "SELECT GARMENTS",
+  "dressButton": "DRESS ({count}/10)",
+  "@dressButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "useButton": "USE ({count}/10)",
+  "@useButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "retakeOutfit": "RETAKE THIS OUTFIT",
+  "garmentsUsed": "GARMENTS USED",
+  "dressingStatus1": "Dressing",
+  "dressingStatus2": "Adjusting",
+  "dressingStatus3": "Retouching",
+  "dressingStatus4": "Modeling",
+  "dressingStatus5": "Styling",
+  "dressingStatus6": "Fitting",
+  "dressingStatus7": "Polishing",
+  "dressingStatus8": "Combining",
+  "dressingStatus9": "Texturing",
+  "dressingStatus10": "Sewing",
+  "dressingStatus11": "Testing",
+  "loading": "Loading...",
+  "errorLoadingResult": "Error loading result",
+  "waiting": "Waiting...",
+  "noGarmentsSaved": "You don't have saved garments yet",
+  "noOutfitsSaved": "You don't have saved outfits yet",
+  "allCategories": "All",
+  "shirtsCategory": "Shirts",
+  "pantsCategory": "Pants",
+  "shoesCategory": "Shoes",
+  "skirtsCategory": "Skirts",
+  "jacketsCategory": "Jackets",
+  "accessoriesCategory": "Accessories",
+  "selectGarments": "Select",
+  "confirmDeleteTitle": "Confirm deletion",
+  "deleteItemConfirm": "Delete {count} {itemType}?",
+  "@deleteItemConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "itemType": {
+        "type": "String"
+      }
+    }
+  },
+  "prenda": "garment",
+  "prendas": "garments",
+  "outfit": "outfit",
+  "outfits": "outfits",
+  "forgotPasswordTitle": "RESET PASSWORD",
+  "forgotPasswordInstruction": "Enter your email to receive a verification code.",
+  "sendCode": "SEND CODE",
+  "verificationTitle": "VERIFICATION",
+  "verificationInstruction": "Enter the 6-digit code sent to",
+  "verify": "VERIFY",
+  "resendCode": "Resend code",
+  "codeWillExpire": "Code will expire in {time}",
+  "@codeWillExpire": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "newPasswordTitle": "NEW PASSWORD",
+  "newPasswordLabel": "New Password",
+  "confirmPasswordLabel": "Confirm Password",
+  "resetPasswordButton": "RESET PASSWORD",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "passwordResetSuccess": "Password reset successful! Please login.",
+  "minCharacters": "Min 6 characters",
+  "confirmYourPassword": "Confirm your password",
+  "codeInvalidated": "CODE INVALIDATED",
+  "resendAvailableIn": "Resend available in {time}",
+  "@resendAvailableIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "continueButton": "CONTINUE",
+  "resendSuccess": "Code resent successfully!",
+  "resendError": "Failed to resend code",
+  "resetPasswordError": "Failed to reset password.",
+  "codeRequestError": "Failed to request password reset.",
+  "loginFailed": "Login failed",
+  "registerFailed": "Registration failed",
+  "termsContent": "Last updated: February 07, 2026\n\nBy creating an account in the Las Prendas application, you (the \"User\") agree to the following terms:\n\n1. NATURE OF THE SERVICE\nLas Prendas is a virtual fitting room platform that allows users to upload clothing images and personal photographs to visualize clothing combinations through digital processing.\n\n2. USER-GENERATED CONTENT\nThe User is solely responsible for images, photographs, and any material (the \"Content\") they upload to the platform. The User warrants that they have the legal rights to such content and that it does not infringe on third-party rights or contain illegal or offensive material.\n\n3. ADMINISTRATIVE ACCESS AND PRIVACY\nThe User acknowledges and agrees that the platform administrators have full access to the Content uploaded and generated within the application. This access is used exclusively for: Technical maintenance, User support, content moderation, and algorithm improvement.\n\n4. IMAGE PROCESSING AND DERIVATIVE WORKS\nBy using Las Prendas, the User grants an express license to the platform for: AI processing to analyze uploaded photos and creation of new images resulting from the combination of User content.\n\n5. PROPIEDAD INTELECTUAL\nThe User retains ownership of their original photos. Las Prendas grants the User a personal use license for the images generated within the app.\n\n6. USO ACEPTABLE\nIt is strictly prohibited to upload content that includes nudity, explicit sexual content, images of third parties without consent, or material that incites hatred.\n\n7. LIMITATION OF LIABILITY\nLas Prendas is not responsible for the misuse that third parties may make of images if the user decides to share them outside the application."
+}

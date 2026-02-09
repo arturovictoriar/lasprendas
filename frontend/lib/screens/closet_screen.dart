@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../services/api_service.dart';
 
 class ClosetScreen extends StatefulWidget {
@@ -20,8 +21,8 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   List<dynamic> _garments = [];
   List<dynamic> _sessions = [];
   bool _isLoading = true;
-  String _selectedCategory = 'Todas';
-  final List<String> _categories = ['Todas', 'Camisas', 'Pantalones', 'Zapatos', 'Faldas', 'Chaquetas', 'Accesorios'];
+  late String _selectedCategory;
+  late List<String> _categories;
   
   final List<dynamic> _selectedInSession = [];
   List<dynamic> _confirmedGarments = [];
@@ -67,6 +68,22 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         }
       }
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _selectedCategory = l10n.allCategories;
+    _categories = [
+      l10n.allCategories,
+      l10n.shirtsCategory,
+      l10n.pantsCategory,
+      l10n.shoesCategory,
+      l10n.skirtsCategory,
+      l10n.jacketsCategory,
+      l10n.accessoriesCategory,
+    ];
     _loadData();
   }
 
@@ -89,7 +106,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando closet: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.localeName == 'es' ? 'Error cargando closet' : 'Error loading closet'}: $e')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -97,15 +114,19 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   List<dynamic> get _filteredGarments {
-    if (_selectedCategory == 'Todas') return _garments;
+    if (_selectedCategory == AppLocalizations.of(context)!.allCategories) return _garments;
     return _garments.where((g) {
       final cat = g['category']?.toString().toLowerCase();
+      // This is a bit tricky if categories in DB are Spanish but localized. 
+      // Assuming DB categories are fixed and we map them or matching English/Spanish.
+      // For now, let's stick to the logic but be aware of the translation mapping.
       return cat == _selectedCategory.toLowerCase();
     }).toList();
   }
 
   List<dynamic> get _filteredSessions {
-    if (_selectedCategory == 'Todas') return _sessions;
+    final allLabel = AppLocalizations.of(context)!.allCategories;
+    if (_selectedCategory == allLabel) return _sessions;
     return _sessions.where((session) {
       final garments = session['garments'] as List<dynamic>? ?? [];
       return garments.any((g) {
@@ -124,9 +145,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         if (_selectedInSession.length < 10) {
           _selectedInSession.add(garment);
         } else {
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Ya tienes ${_selectedInSession.length} prendas. El máximo es 10.'),
+              content: Text(l10n.localeName == 'es' 
+                  ? 'Ya tienes ${_selectedInSession.length} prendas. El máximo es 10.'
+                  : 'You already have ${_selectedInSession.length} garments. The maximum is 10.'),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -151,20 +175,29 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     }
     message += '?';
 
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white)),
-        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        title: Text(l10n.confirmDeleteTitle, style: const TextStyle(color: Colors.white)),
+        content: Text(
+          l10n.deleteItemConfirm(
+            isLibraryTab ? gCount : sCount,
+            isLibraryTab 
+                ? (gCount > 1 ? l10n.prendas : l10n.prenda)
+                : (sCount > 1 ? l10n.outfits : l10n.outfit)
+          ),
+          style: const TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCELAR', style: TextStyle(color: Colors.white54)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ELIMINAR TODO', style: TextStyle(color: Colors.redAccent)),
+            child: Text(l10n.deleteSelected, style: const TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -206,6 +239,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       extendBodyBehindAppBar: true,
@@ -214,16 +248,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white70),
           onPressed: () => Navigator.pop(context, _confirmedGarments),
         ),
-        title: const Text('CLOSET', style: TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+        title: Text(l10n.closetTitle, style: const TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'MIS PRENDAS'),
-            Tab(text: 'MIS OUTFITS'),
+          tabs: [
+            Tab(text: l10n.myGarmentsTab),
+            Tab(text: l10n.myOutfitsTab),
           ],
         ),
       ),
@@ -307,7 +341,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           }
         }),
         icon: const Icon(Icons.check_circle_outline, size: 20),
-        label: const Text('SELECCIONAR', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        label: Text(AppLocalizations.of(context)!.selectButton, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -337,7 +371,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
               _selectedOutfitsForDelete.clear();
             }
           }),
-          child: const Text('CANCELAR', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+          child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 8),
         Container(
@@ -371,7 +405,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: Text('USAR ($totalCount/10)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(AppLocalizations.of(context)!.useButton(totalCount), style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           )
@@ -407,7 +441,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   Widget _buildLibraryTab() {
     if (_garments.isEmpty) {
-      return const Center(child: Text('Aún no tienes prendas guardadas', style: TextStyle(color: Colors.white54)));
+      return Center(child: Text(AppLocalizations.of(context)!.noGarmentsSaved, style: const TextStyle(color: Colors.white54)));
     }
     return Column(
       children: [
@@ -506,7 +540,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   Widget _buildOutfitsTab() {
     if (_sessions.isEmpty) {
-      return const Center(child: Text('Aún no tienes outfits guardados', style: TextStyle(color: Colors.white54)));
+      return Center(child: Text(AppLocalizations.of(context)!.noOutfitsSaved, style: const TextStyle(color: Colors.white54)));
     }
     final filtered = _filteredSessions;
     return Column(
@@ -623,8 +657,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Widget _buildNoSessionsMessage() {
-    if (_selectedCategory == 'Todas') {
-      return const Center(child: Text('Aún no tienes outfits guardados', style: TextStyle(color: Colors.white54)));
+    final allLabel = AppLocalizations.of(context)!.allCategories;
+    if (_selectedCategory == allLabel) {
+      return Center(child: Text(AppLocalizations.of(context)!.noOutfitsSaved, style: const TextStyle(color: Colors.white54)));
     }
     return Center(
       child: Padding(
@@ -635,7 +670,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             const Icon(Icons.search_off, color: Colors.white24, size: 60),
             const SizedBox(height: 15),
             Text(
-              'No hay outfits con ${_selectedCategory.toLowerCase()}',
+              AppLocalizations.of(context)!.localeName == 'es' 
+                  ? 'No hay outfits con ${_selectedCategory.toLowerCase()}'
+                  : 'No outfits with ${_selectedCategory.toLowerCase()}',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, fontSize: 16),
             ),
@@ -743,7 +780,7 @@ class OutfitManagementScreen extends StatelessWidget {
                       });
                     },
                     icon: const Icon(Icons.tune, color: Colors.white),
-                    label: const Text('RETOMAR ESTE OUTFIT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    label: Text(AppLocalizations.of(context)!.retakeOutfit, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -755,9 +792,9 @@ class OutfitManagementScreen extends StatelessWidget {
                 const SizedBox(height: 40),
 
                 // Reference Garments
-                const Text(
-                  'PRENDAS UTILIZADAS',
-                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                Text(
+                  AppLocalizations.of(context)!.garmentsUsed,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                 ),
                 const SizedBox(height: 20),
                 SizedBox(

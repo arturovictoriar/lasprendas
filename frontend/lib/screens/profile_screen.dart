@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
+import '../providers/language_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,15 +15,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
     
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('MI PERFIL', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+        title: Text(l10n.profileTitle, style: const TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.translate, color: Colors.white70),
+            onPressed: () => context.read<LanguageProvider>().toggleLanguage(),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Container(
         width: double.infinity,
@@ -71,13 +81,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 30),
               _ProfileInfoItem(
-                label: 'NOMBRE',
-                value: auth.userName ?? 'Cargando...',
+                label: l10n.profileNameLabel,
+                value: auth.userName ?? l10n.loading,
               ),
               const SizedBox(height: 20),
               _ProfileInfoItem(
-                label: 'CORREO ELECTRÓNICO',
-                value: auth.userEmail ?? 'Cargando...',
+                label: l10n.profileEmailLabel,
+                value: auth.userEmail ?? l10n.loading,
               ),
               const Spacer(),
               SizedBox(
@@ -94,9 +104,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     side: const BorderSide(color: Colors.redAccent),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  child: const Text(
-                    'CERRAR SESIÓN',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  child: Text(
+                    l10n.logout,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
