@@ -21,6 +21,14 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _acceptedTerms = false;
   bool _obscurePassword = true;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -201,7 +209,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           TextButton(
                             onPressed: () => Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                              MaterialPageRoute(
+                                builder: (context) => ForgotPasswordScreen(email: _emailController.text),
+                              ),
                             ),
                             child: const Text('Forgot Password?', style: TextStyle(color: Colors.white70)),
                           ),

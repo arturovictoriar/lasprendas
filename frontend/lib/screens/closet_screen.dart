@@ -250,8 +250,17 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
               ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _shouldShowBottomBar() ? _buildBottomBar() : null,
     );
+  }
+
+  bool _shouldShowBottomBar() {
+    if (_isLoading) return false;
+    if (_tabController.index == 0) {
+      return _garments.isNotEmpty;
+    } else {
+      return _sessions.isNotEmpty;
+    }
   }
 
   Widget _buildBottomBar() {
