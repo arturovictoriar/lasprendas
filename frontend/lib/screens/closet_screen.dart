@@ -306,8 +306,8 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           padding: EdgeInsets.only(
             left: 20, 
             right: 20, 
-            top: 15, 
-            bottom: MediaQuery.of(context).padding.bottom + 15
+            top: 8, 
+            bottom: MediaQuery.of(context).padding.bottom + 4
           ),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
@@ -326,7 +326,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   Widget _buildNormalModeActions(int totalCount) {
     return Container(
-      height: 55,
+      height: 48,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
@@ -390,7 +390,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         if (isLibraryTab)
           Expanded(
             child: Container(
-              height: 55,
+              height: 48,
               decoration: BoxDecoration(
                 gradient: totalCount > 0 
                   ? const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)])
@@ -498,12 +498,15 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
+                        clipBehavior: Clip.antiAlias,
                         child: Hero(
                           tag: 'garment-${garment['id']}',
                           child: CachedNetworkImage(
                             imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
                             fit: BoxFit.cover,
                             memCacheWidth: 200,
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
                             placeholder: (context, url) => Container(color: Colors.white10),
                             errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
                           ),
@@ -597,35 +600,35 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(13),
-                            child: Hero(
-                              tag: 'outfit-${session['id']}',
-                              child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    memCacheWidth: 400,
-                                    placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
-                                    errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10),
-                                  )
-                                : Container(
-                                    color: Colors.white.withOpacity(0.05),
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 30),
-                                          const SizedBox(height: 8),
-                                          const Text(
-                                            'Generando outfit...',
-                                            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
-                                          ),
-                                        ],
-                                      ),
+                            clipBehavior: Clip.antiAlias,
+                            child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  memCacheWidth: 400,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10),
+                                )
+                              : Container(
+                                  color: Colors.white.withOpacity(0.05),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 30),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Generando outfit...',
+                                          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                            ),
+                                ),
                           ),
                         ),
                         if (_isOutfitSelectionMode)
@@ -722,36 +725,33 @@ class OutfitManagementScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Main Result Image
-                GestureDetector(
-                  onTap: () {
-                    if (session['resultUrl'] != null) {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
-                        imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                        tag: 'outfit-detail-${session['id']}',
-                      )));
-                    }
-                  },
-                  child: Hero(
-                    tag: 'outfit-detail-${session['id']}',
-                    child: Container(
-                      width: double.infinity,
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
+                Center(
+                  child: Container(
+                    height: MediaQuery.of(context).size.height * 0.53,
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      clipBehavior: Clip.antiAlias,
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
                         child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
+                              memCacheHeight: 1200,
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
                               placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
                               errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
                             )
@@ -760,15 +760,15 @@ class OutfitManagementScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 14),
                 
                 // Retake Button
                 Container(
                   width: double.infinity,
-                  height: 55,
+                  height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [Color(0xFF424242), Color(0xFF212121)]),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ElevatedButton.icon(
                     onPressed: () {
@@ -779,24 +779,27 @@ class OutfitManagementScreen extends StatelessWidget {
                         'resultUrl': session['resultUrl'],
                       });
                     },
-                    icon: const Icon(Icons.tune, color: Colors.white),
-                    label: Text(AppLocalizations.of(context)!.retakeOutfit, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    icon: const Icon(Icons.tune, color: Colors.white, size: 20),
+                    label: Text(
+                      AppLocalizations.of(context)!.retakeOutfit, 
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 16),
 
                 // Reference Garments
                 Text(
                   AppLocalizations.of(context)!.garmentsUsed,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 SizedBox(
                   height: 120,
                   child: ListView.builder(
@@ -823,10 +826,13 @@ class OutfitManagementScreen extends StatelessWidget {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(14),
+                              clipBehavior: Clip.antiAlias,
                               child: CachedNetworkImage(
                                 imageUrl: ApiService.getFullImageUrl(g['originalUrl']),
                                 fit: BoxFit.cover,
                                 memCacheWidth: 200,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
                                 placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
                                 errorWidget: (context, url, error) => const Icon(Icons.error, size: 20, color: Colors.white10),
                               ),
@@ -837,7 +843,6 @@ class OutfitManagementScreen extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -887,6 +892,8 @@ class OutfitDetailScreen extends StatelessWidget {
                         imageUrl: imageUrl!,
                         fit: BoxFit.contain,
                         memCacheHeight: 1200, // Optimized for detail view
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
                         placeholder: (context, url) => const Center(
                           child: CircularProgressIndicator(color: Colors.white24)
                         ),

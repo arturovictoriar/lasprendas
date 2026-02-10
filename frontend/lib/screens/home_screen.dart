@@ -576,25 +576,19 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
           Expanded(
-            flex: 4,
+            flex: 6,
             child: Stack(
               children: [
                 Center(
                   child: Container(
-                    margin: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
+                      clipBehavior: Clip.antiAlias,
                       child: InteractiveViewer(
                         minScale: 1.0,
                         maxScale: 4.0,
@@ -604,6 +598,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 key: ValueKey(_resultPath),
                                 fit: BoxFit.contain,
                                 memCacheHeight: 1200,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
                                 placeholder: (context, url) => const Center(
                                   child: CircularProgressIndicator(color: Colors.white),
                                 ),
@@ -770,6 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 15),
 
           if (_selectedItems.isNotEmpty)
             SizedBox(
@@ -842,7 +839,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
           Padding(
-            padding: const EdgeInsets.all(30),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -881,7 +878,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 15),
                 SizedBox(
                   width: double.infinity,
                   height: 60,
