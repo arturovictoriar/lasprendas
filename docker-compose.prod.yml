@@ -45,7 +45,6 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION}
     volumes:
-      - /app/node_modules
       - ./assets/images:/app/assets
     depends_on:
       - db
@@ -77,7 +76,6 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION}
     volumes:
-      - /app/node_modules
       - ./assets/images:/app/assets
     depends_on:
       - db
