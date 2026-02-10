@@ -215,7 +215,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get forgotPasswordInstruction =>
-      'Ingresa tu email para recibir un código de verificación.';
+      'Ingresa tu correo electrónico para recibir un código de verificación.';
 
   @override
   String get sendCode => 'ENVIAR CÓDIGO';

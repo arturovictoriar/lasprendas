@@ -90,7 +90,7 @@
   "outfit": "outfit",
   "outfits": "outfits",
   "forgotPasswordTitle": "RECUPERAR CONTRASEÑA",
-  "forgotPasswordInstruction": "Ingresa tu email para recibir un código de verificación.",
+  "forgotPasswordInstruction": "Ingresa tu correo electrónico para recibir un código de verificación.",
   "sendCode": "ENVIAR CÓDIGO",
   "verificationTitle": "VERIFICACIÓN",
   "verificationInstruction": "Ingresa el código de 6 dígitos enviado a",

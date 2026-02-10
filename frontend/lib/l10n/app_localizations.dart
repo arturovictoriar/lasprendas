@@ -497,7 +497,7 @@ abstract class AppLocalizations {
   /// No description provided for @forgotPasswordInstruction.
   ///
   /// In es, this message translates to:
-  /// **'Ingresa tu email para recibir un código de verificación.'**
+  /// **'Ingresa tu correo electrónico para recibir un código de verificación.'**
   String get forgotPasswordInstruction;
 
   /// No description provided for @sendCode.
