@@ -1,13 +1,18 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
+import 'package:lasprendas_frontend/l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 import 'closet_screen.dart';
 import 'profile_screen.dart';
 
@@ -29,6 +34,135 @@ class _HomeScreenState extends State<HomeScreen> {
   String _personType = 'female'; // 'female' or 'male'
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
+  final _storage = StorageService();
+
+  Future<void> _resilientWrite(String key, String value) async {
+    await _storage.write(key: key, value: value);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedState();
+  }
+
+  Future<void> _savePersistedState() async {
+    try {
+      final List<Map<String, dynamic>> serializedItems = _selectedItems.map((item) {
+        if (item is File) {
+          return {'type': 'file', 'path': item.path};
+        } else if (item is Map) {
+          return {'type': 'map', 'data': item};
+        }
+        return <String, dynamic>{};
+      }).toList();
+
+      // Ultra-resilient write strategy
+      await _resilientWrite('selected_garments', jsonEncode(serializedItems));
+      await _resilientWrite('person_type', _personType);
+
+      if (_resultPath != null) {
+        await _resilientWrite('result_path', _resultPath!);
+      } else {
+        await _storage.delete(key: 'result_path');
+      }
+      
+      if (_isLoading && _processingItems.isNotEmpty) {
+        final List<Map<String, dynamic>> serializedProcessingItems = _processingItems.map((item) {
+          if (item is File) {
+            return {'type': 'file', 'path': item.path};
+          } else if (item is Map) {
+            return {'type': 'map', 'data': item};
+          }
+          return <String, dynamic>{};
+        }).toList();
+
+        await _resilientWrite('processing_items', jsonEncode(serializedProcessingItems));
+        await _resilientWrite('processing_person_type', _processingPersonType);
+      }
+    } catch (e) {
+      print('Error saving state: $e');
+    }
+  }
+
+  Future<void> _loadPersistedState() async {
+    try {
+      final savedGarments = await _storage.read(key: 'selected_garments');
+      final savedPersonType = await _storage.read(key: 'person_type');
+      final savedSessionId = await _storage.read(key: 'processing_session_id');
+      final savedProcessingItems = await _storage.read(key: 'processing_items');
+      final savedProcessingPersonType = await _storage.read(key: 'processing_person_type');
+
+      if (savedPersonType != null) {
+        setState(() => _personType = savedPersonType);
+      }
+
+      final savedResultPath = await _storage.read(key: 'result_path');
+      if (savedResultPath != null) {
+        setState(() => _resultPath = savedResultPath);
+      }
+
+      if (savedGarments != null) {
+        final List<dynamic> decodedItems = jsonDecode(savedGarments);
+        final List<dynamic> restoredItems = [];
+
+        for (var item in decodedItems) {
+          if (item['type'] == 'file') {
+            final file = File(item['path']);
+            if (await file.exists()) {
+              restoredItems.add(file);
+            }
+          } else if (item['type'] == 'map') {
+            restoredItems.add(item['data']);
+          }
+        }
+
+        if (restoredItems.isNotEmpty) {
+          setState(() => _selectedItems.addAll(restoredItems));
+        }
+      }
+
+      if (savedSessionId != null && savedProcessingItems != null) {
+        final List<dynamic> decodedProcItems = jsonDecode(savedProcessingItems);
+        final List<dynamic> restoredProcItems = [];
+
+        for (var item in decodedProcItems) {
+          if (item['type'] == 'file') {
+            final file = File(item['path']);
+            if (await file.exists()) {
+              restoredProcItems.add(file);
+            }
+          } else if (item['type'] == 'map') {
+            restoredProcItems.add(item['data']);
+          }
+        }
+
+        if (restoredProcItems.isNotEmpty) {
+          setState(() {
+            _isLoading = true;
+            _processingItems = restoredProcItems;
+            _processingPersonType = savedProcessingPersonType ?? _personType;
+            _statusMessage = AppLocalizations.of(context)!.loading; // "Retomando..." was here, "Cargando..." or dedicated key
+          });
+          _pollSessionStatus(savedSessionId, _processingPersonType);
+        }
+      }
+    } catch (e) {
+      print('Error loading state: $e');
+    }
+  }
+
+  Future<void> _clearPersistedState() async {
+    try {
+      await _storage.delete(key: 'selected_garments');
+      await _storage.delete(key: 'processing_session_id');
+      await _storage.delete(key: 'processing_items');
+      await _storage.delete(key: 'processing_person_type');
+      await _storage.delete(key: 'result_path');
+    } catch (e) {
+      print('Error clearing state: $e');
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     if (_isLoading || _selectedItems.length >= 10) return;
@@ -41,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedItems.add(File(image.path));
           _resultPath = null;
         });
+        _savePersistedState();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -76,12 +211,13 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedItems.add(file);
           _resultPath = null;
         });
+        _savePersistedState();
         
         // Success: Don't show SnackBar as requested
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se encontró una imagen o URL válida en el portapapeles')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.noGarmentsSaved)), // Fallback or dedicated message
           );
         }
       }
@@ -108,28 +244,49 @@ class _HomeScreenState extends State<HomeScreen> {
            path.contains('imgurl='); // Common in Google Image search results
   }
 
+  String _calculateGarmentsFingerprint(List<dynamic> items) {
+    final List<String> identifiers = items.map((item) {
+      if (item is Map) {
+        return 'garment_${item['id']}';
+      } else if (item is File) {
+        return 'file_${item.path}';
+      }
+      return 'unknown';
+    }).toList();
+    identifiers.sort();
+    return identifiers.join('|');
+  }
+
   Future<void> _openCloset() async {
-    final List<File> files = _selectedItems.whereType<File>().toList();
-    final List<dynamic> garments = _selectedItems.where((item) => item is Map).toList();
+    // If we are processing, the "real" current selection is what we are processing.
+    // This allows the user to go to the closet and see/edit what is on the mannequin.
+    final List<dynamic> sourceItems = _isLoading ? _processingItems : _selectedItems;
+    
+    final List<dynamic> initialGarments = sourceItems; // Pass everything
 
     final dynamic result = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute<dynamic>(
         builder: (context) => ClosetScreen(
-          initialSelectedGarments: garments,
-          externalCount: files.length,
+          initialSelectedGarments: initialGarments,
         ),
       ),
     );
 
     if (result != null) {
       if (result is List) {
-        // Legacy behavior: just picking garments
+        final currentFingerprint = _calculateGarmentsFingerprint(sourceItems);
+        final newFingerprint = _calculateGarmentsFingerprint(result);
+        final hasChanged = currentFingerprint != newFingerprint;
+
         setState(() {
-          _selectedItems.removeWhere((item) => item is Map);
+          _selectedItems.clear();
           _selectedItems.addAll(result);
-          _resultPath = null;
+          if (hasChanged) {
+            _resultPath = null;
+          }
         });
+        _savePersistedState();
       } else if (result is Map && result['type'] == 'retake') {
         // New behavior: retaking a whole outfit
         setState(() {
@@ -139,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _resultPath = result['resultUrl'];
         });
       }
+      _savePersistedState();
     }
   }
 
@@ -150,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
       _isRetrying = false;
       _isCancelled = false;
-      _statusMessage = 'Vistiendo...';
+      _statusMessage = AppLocalizations.of(context)!.dressingStatus1 + '...'; // "Alistando..." -> "Vistiendo..."
       _processingItems = List.from(_selectedItems); // Capture current selection
       _processingPersonType = requestedPersonType; // Store gender for UI
     });
@@ -162,6 +320,14 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((item) => item['id'] as String)
           .toList();
 
+      // Calculate hashes for new files to enable pre-flight check
+      final List<String> hashes = [];
+      for (var file in files) {
+        final bytes = await file.readAsBytes();
+        final hash = sha256.convert(bytes).toString();
+        hashes.add(hash);
+      }
+
       bool success = false;
       String? sessionId;
 
@@ -171,18 +337,35 @@ class _HomeScreenState extends State<HomeScreen> {
             files, 
             'clothing', 
             garmentIds: garmentIds,
-            personType: requestedPersonType, // Usar el género capturado al inicio
+            personType: requestedPersonType,
+            hashes: hashes,
           );
           
           sessionId = response['id'] ?? response['sessionId'];
           if (sessionId == null) throw 'No se recibió el ID de la sesión';
+          // Update _selectedItems to replace Files with resolved Garments (new or matched by hash)
+          if (response['resolvedGarments'] != null && mounted) {
+            final List<dynamic> resolved = response['resolvedGarments'];
+            setState(() {
+              for (var i = 0; i < files.length; i++) {
+                final fileToRemove = files[i];
+                final index = _selectedItems.indexWhere((item) => item is File && item.path == fileToRemove.path);
+                if (index != -1 && i < resolved.length) {
+                  final garment = Map<String, dynamic>.from(resolved[i]);
+                  garment['_localFilePath'] = fileToRemove.path; // Attach the local path
+                  _selectedItems[index] = garment;
+                }
+              }
+            });
+          }
+
           success = true;
         } catch (e) {
           if (e.toString().contains('503') || e.toString().contains('lleno')) {
             if (!mounted) return;
             setState(() {
               _isRetrying = true;
-              _statusMessage = 'El vestier está muy lleno hoy... Reintentando...';
+              _statusMessage = AppLocalizations.of(context)!.waiting; // "El vestier está muy lleno hoy... Reintentando..." -> "Esperando..."
             });
             await Future.delayed(const Duration(seconds: 5));
           } else {
@@ -194,10 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (success && sessionId != null && !_isCancelled) {
         if (!mounted) return;
-        setState(() {
-          _isRetrying = false;
-          _statusMessage = 'Ajustando detalles...';
-        });
+        // Message will be handled by the polling loop sequence
+        await _storage.write(key: 'processing_session_id', value: sessionId.toString());
+        await _savePersistedState(); // Save processing_items and person_type
         await _pollSessionStatus(sessionId.toString(), requestedPersonType);
       }
     } catch (e) {
@@ -225,19 +407,19 @@ class _HomeScreenState extends State<HomeScreen> {
     while (retries < maxRetries) {
       if (!mounted) return;
       
+      final l10n = AppLocalizations.of(context)!;
       final dressingMessages = [
-        'Ajustando costuras',
-        'Combinando texturas',
-        'En el probador',
-        'Espejito, espejito',
-        'Perfeccionando el look',
-        'Cerrando cremalleras',
-        'Planchando detalles',
-        'Buscando el ángulo perfecto',
-        'Preparando la pasarela',
-        'Estilizando tu figura',
-        'Iluminando el set',
-        'Capturando la esencia',
+        l10n.dressingStatus1,
+        l10n.dressingStatus2,
+        l10n.dressingStatus3,
+        l10n.dressingStatus4,
+        l10n.dressingStatus5,
+        l10n.dressingStatus6,
+        l10n.dressingStatus7,
+        l10n.dressingStatus8,
+        l10n.dressingStatus9,
+        l10n.dressingStatus10,
+        l10n.dressingStatus11,
       ];
       final currentMessage = dressingMessages[retries % dressingMessages.length];
       if (!mounted || _isCancelled) return;
@@ -255,6 +437,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _isLoading = false;
             _statusMessage = null;
           });
+          _clearPersistedState();
           return;
         }
       } catch (e) {
@@ -271,7 +454,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _statusMessage = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El procesamiento está tardando más de lo esperado. Mira tus outfits luego.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.localeName == 'es' 
+            ? 'El procesamiento está tardando más de lo esperado. Mira tus outfits luego.' 
+            : 'Processing is taking longer than expected. Check your outfits later.')),
       );
     }
   }
@@ -283,95 +468,127 @@ class _HomeScreenState extends State<HomeScreen> {
         _resultPath = null;
       }
     });
+    _savePersistedState();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        leadingWidth: 80,
+        leadingWidth: 110,
         leading: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             const SizedBox(width: 12),
             GestureDetector(
-              onTap: () => setState(() {
-                _personType = 'female';
-                _resultPath = null;
-              }),
-              child: Icon(
-                Icons.woman,
-                color: _personType == 'female' ? Colors.white : Colors.white24,
-                size: 26,
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _personType = 'female';
+                  _resultPath = null;
+                });
+                _savePersistedState();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  Icons.woman,
+                  color: _personType == 'female' ? Colors.white : Colors.white24,
+                  size: 26,
+                ),
               ),
             ),
-            const SizedBox(width: 4),
             GestureDetector(
-              onTap: () => setState(() {
-                _personType = 'male';
-                _resultPath = null;
-              }),
-              child: Icon(
-                Icons.man,
-                color: _personType == 'male' ? Colors.white : Colors.white24,
-                size: 26,
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _personType = 'male';
+                  _resultPath = null;
+                });
+                _savePersistedState();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  Icons.man,
+                  color: _personType == 'male' ? Colors.white : Colors.white24,
+                  size: 26,
+                ),
               ),
             ),
           ],
         ),
-        title: const Text('LAS PRENDAS', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+        title: Text(
+          AppLocalizations.of(context)!.appTitle, 
+          style: const TextStyle(fontSize: 18, letterSpacing: 1.0, fontWeight: FontWeight.bold)
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         actions: [
           if (_selectedItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: GestureDetector(
-                onTap: () => setState(() {
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
                   _selectedItems.clear();
                   _resultPath = null;
-                }),
+                });
+                _clearPersistedState();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
                 child: const Icon(Icons.refresh, color: Colors.white70, size: 26),
               ),
             ),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),
             ),
-            child: const Icon(
-              Icons.person,
-              color: Colors.white70,
-              size: 26,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              child: const Icon(
+                Icons.person,
+                color: Colors.white70,
+                size: 26,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background-lasprendas.png'),
+            fit: BoxFit.cover,
+            opacity: 0.7,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
           Expanded(
-            flex: 4,
+            flex: 6,
             child: Stack(
               children: [
                 Center(
                   child: Container(
-                    margin: const EdgeInsets.all(20),
+                    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
+                      clipBehavior: Clip.antiAlias,
                       child: InteractiveViewer(
                         minScale: 1.0,
                         maxScale: 4.0,
@@ -381,17 +598,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 key: ValueKey(_resultPath),
                                 fit: BoxFit.contain,
                                 memCacheHeight: 1200,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
                                 placeholder: (context, url) => const Center(
                                   child: CircularProgressIndicator(color: Colors.white),
                                 ),
                                 errorWidget: (context, url, error) {
-                                  return const Column(
+                                  return Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
                                       SizedBox(height: 10),
                                       Text(
-                                        'Error cargando resultado',
+                                        AppLocalizations.of(context)!.errorLoadingResult,
                                         style: TextStyle(color: Colors.white70),
                                       ),
                                     ],
@@ -413,14 +632,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   left: -4,
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
-                    opacity: _isLoading ? 1.0 : 0.0,
+                    opacity: (_isLoading && _statusMessage != null) ? 1.0 : 0.0,
                     curve: Curves.easeInOut,
                     child: AnimatedScale(
                       duration: const Duration(milliseconds: 300),
-                      scale: _isLoading ? 1.0 : 0.95,
+                      scale: (_isLoading && _statusMessage != null) ? 1.0 : 0.95,
                       curve: Curves.easeOutBack,
                       child: IgnorePointer(
-                        ignoring: !_isLoading,
+                        ignoring: !(_isLoading && _statusMessage != null),
                         child: Container(
                           width: 120, // Revertido al tamaño original que te gustaba
                           padding: const EdgeInsets.all(10),
@@ -480,6 +699,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 : CachedNetworkImage(
                                                     imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
                                                     fit: BoxFit.cover,
+                                                    placeholder: (context, url) {
+                                                      if (item['_localFilePath'] != null) {
+                                                        final file = File(item['_localFilePath']);
+                                                        return Image.file(file, fit: BoxFit.cover);
+                                                      }
+                                                      return Container(color: Colors.white10);
+                                                    },
                                                   ),
                                             ),
                                           );
@@ -501,7 +727,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _isRetrying ? 'ESPERANDO...' : 'VISTIENDO...',
+                                      _isRetrying 
+                                          ? AppLocalizations.of(context)!.waiting 
+                                          : (_statusMessage ?? AppLocalizations.of(context)!.dressingStatus1 + '...').toUpperCase(),
                                       style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -520,11 +748,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       _processingItems = [];
                                     });
                                   },
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(top: 8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 8),
                                     child: Text(
-                                      'CANCELAR', 
-                                      style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
+                                      l10n.cancel, 
+                                      style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)
                                     ),
                                   ),
                                 ),
@@ -538,6 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 15),
 
           if (_selectedItems.isNotEmpty)
             SizedBox(
@@ -552,23 +781,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   return Stack(
                     children: [
-                      Container(
-                        width: 80,
-                        margin: const EdgeInsets.only(right: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: isFile 
-                              ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                              : CachedNetworkImage(
-                                  imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 200, 
-                                  placeholder: (context, url) => Container(color: Colors.white10),
-                                ),
+                      GestureDetector(
+                        onLongPress: () {
+                          final heroTag = 'selected-${index}-${isFile ? item.path : item['id']}';
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OutfitDetailScreen(
+                                imageUrl: isFile ? null : ApiService.getFullImageUrl(item['originalUrl']),
+                                localFile: isFile ? item : null,
+                                tag: heroTag,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: 'selected-${index}-${isFile ? item.path : item['id']}',
+                          child: Container(
+                            width: 80,
+                            margin: const EdgeInsets.only(right: 15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: isFile 
+                                  ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
+                                    : CachedNetworkImage(
+                                        imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
+                                        fit: BoxFit.cover,
+                                        memCacheWidth: 200, 
+                                        placeholder: (context, url) {
+                                          if (item['_localFilePath'] != null) {
+                                            final file = File(item['_localFilePath']);
+                                            return Image.file(file, fit: BoxFit.cover, cacheWidth: 200);
+                                          }
+                                          return Container(color: Colors.white.withOpacity(0.05));
+                                        },
+                                      ),
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(
@@ -586,7 +839,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
           Padding(
-            padding: const EdgeInsets.all(30),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -595,7 +848,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.camera_alt_outlined,
-                        label: 'Cámara',
+                        label: l10n.camera,
                         onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.camera),
                       ),
                     ),
@@ -603,7 +856,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.photo_library_outlined,
-                        label: 'Galería',
+                        label: l10n.gallery,
                         onPressed: _selectedItems.length >= 10 ? null : () => _pickImage(ImageSource.gallery),
                       ),
                     ),
@@ -611,7 +864,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.content_paste_outlined,
-                        label: 'PEGAR',
+                        label: l10n.paste,
                         onPressed: _selectedItems.length >= 10 ? null : _handlePasteImage,
                       ),
                     ),
@@ -619,13 +872,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _ActionButton(
                         icon: Icons.checkroom_outlined,
-                        label: 'Closet',
+                        label: l10n.closetButton,
                         onPressed: _selectedItems.whereType<File>().length >= 10 ? null : _openCloset,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 15),
                 SizedBox(
                   width: double.infinity,
                   height: 60,
@@ -638,7 +891,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      _selectedItems.isEmpty ? 'SELECCIONA PRENDAS' : 'VESTIR (${_selectedItems.length}/10)',
+                      _selectedItems.isEmpty 
+                          ? l10n.selectGarmentsPrompt 
+                          : l10n.dressButton(_selectedItems.length),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
@@ -648,6 +903,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

@@ -31,6 +31,8 @@ import { AuthService } from './application/services/auth.service';
 import { AuthController } from './infrastructure/controllers/auth.controller';
 import { JwtStrategy } from './infrastructure/adapters/auth/jwt.strategy';
 import { TryOnProcessor } from './application/processors/try-on.processor';
+import { RedisService } from './infrastructure/adapters/persistence/redis.service';
+import { MailService } from './infrastructure/adapters/mail/mail.service';
 
 @Module({
   imports: [
@@ -117,6 +119,8 @@ import { TryOnProcessor } from './application/processors/try-on.processor';
       useClass: S3StorageAdapter,
     },
     ImageProcessorService,
+    RedisService,
+    MailService,
   ],
 })
 export class AppModule { }

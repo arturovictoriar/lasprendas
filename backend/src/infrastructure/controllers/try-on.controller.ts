@@ -55,17 +55,20 @@ export class TryOnController {
         @Request() req: any,
         @Body('garmentKeys') garmentKeys?: string[],
         @Body('garmentIds') garmentIds?: string | string[],
-        @Body('personType') personType?: string
+        @Body('personType') personType?: string,
+        @Body('garmentHashes') garmentHashes?: string[]
     ) {
         const ids = typeof garmentIds === 'string' ? [garmentIds] : garmentIds;
         const keys = Array.isArray(garmentKeys) ? garmentKeys : (garmentKeys ? [garmentKeys] : []);
+        const hashes = Array.isArray(garmentHashes) ? garmentHashes : [];
 
         try {
-            const sessionId = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female');
+            const { sessionId, uploadedGarments } = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female', hashes);
             return {
                 success: true,
                 id: sessionId,
-                sessionId: sessionId
+                sessionId: sessionId,
+                uploadedGarments: uploadedGarments
             };
         } catch (error) {
             if ((error as Error).message === 'No garments provided for try-on') {

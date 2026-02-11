@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'storage_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.10.18:3000'; 
-  static const _storage = FlutterSecureStorage();
+  static const String baseUrl = 'http://beta-api.lasprendas.com';
+  static final _storage = StorageService();
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'jwt_token');
@@ -44,9 +44,71 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> _getUploadParams(String filename, String mimeType) async {
+  static Future<Map<String, dynamic>> verify(String email, String code) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code}),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Verification failed: ${response.body}');
+    }
+  }
+
+  static Future<void> resendCode(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/resend-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to resend code: ${response.body}');
+    }
+  }
+
+  static Future<void> forgotPassword(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Forgot password request failed: ${response.body}');
+    }
+  }
+
+  static Future<void> verifyResetCode(String email, String code) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-reset-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Invalid or expired reset code: ${response.body}');
+    }
+  }
+
+  static Future<void> resetPassword(String email, String code, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'code': code, 'password': newPassword}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Password reset failed: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> _getUploadParams(String filename, String mimeType, {String? hash}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/storage/upload-params?filename=$filename&mimeType=$mimeType'),
+      Uri.parse('$baseUrl/storage/upload-params?filename=$filename&mimeType=$mimeType${hash != null ? '&hash=$hash' : ''}'),
       headers: await _headers(),
     );
 
@@ -73,20 +135,39 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female'}) async {
+  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female', List<String>? hashes}) async {
     final List<String> garmentKeys = [];
+    final List<String> garmentHashes = [];
+    final List<String> finalGarmentIds = garmentIds != null ? List.from(garmentIds) : [];
+    // Track which garment corresponds to which input image
+    final List<dynamic> resolvedForImages = List.filled(images.length, null);
 
     // 1. Upload each image directly to S3
-    for (var image in images) {
+    for (var i = 0; i < images.length; i++) {
+      final image = images[i];
+      final hash = (hashes != null && i < hashes.length) ? hashes[i] : null;
+      
       final filename = basename(image.path);
       const mimeType = 'image/png'; // Default or detect
 
-      final params = await _getUploadParams(filename, mimeType);
-      final uploadUrl = params['uploadUrl'];
-      final key = params['key'];
+      final params = await _getUploadParams(filename, mimeType, hash: hash);
+      
+      if (params['alreadyExists'] == true && params['garment'] != null) {
+        // Skip upload, use existing garment ID
+        finalGarmentIds.add(params['garment']['id']);
+        resolvedForImages[i] = params['garment'];
+      } else {
+        final uploadUrl = params['uploadUrl'];
+        final key = params['key'];
 
-      await _uploadFileToS3(uploadUrl, image, mimeType);
-      garmentKeys.add(key);
+        await _uploadFileToS3(uploadUrl, image, mimeType);
+        garmentKeys.add(key);
+        if (hash != null) {
+          garmentHashes.add(hash);
+        }
+        // Mark as needing to be filled from backend response
+        resolvedForImages[i] = {'_tempKey': key};
+      }
     }
 
     // 2. Create try-on session with the keys
@@ -97,12 +178,28 @@ class ApiService {
         'category': category,
         'personType': personType,
         'garmentKeys': garmentKeys,
-        'garmentIds': garmentIds,
+        'garmentIds': finalGarmentIds,
+        'garmentHashes': garmentHashes,
       }),
     );
     
     if (response.statusCode == 201 || response.statusCode == 200) {
-      return json.decode(response.body);
+      final responseData = json.decode(response.body);
+      final List<dynamic> uploaded = responseData['uploadedGarments'] ?? [];
+
+      // Map uploaded garments back to resolvedForImages
+      int uploadIdx = 0;
+      for (var i = 0; i < resolvedForImages.length; i++) {
+        if (resolvedForImages[i] is Map && resolvedForImages[i].containsKey('_tempKey')) {
+          if (uploadIdx < uploaded.length) {
+            resolvedForImages[i] = uploaded[uploadIdx];
+            uploadIdx++;
+          }
+        }
+      }
+      
+      responseData['resolvedGarments'] = resolvedForImages;
+      return responseData;
     } else {
       throw Exception('Failed to create try-on session: ${response.body}');
     }
