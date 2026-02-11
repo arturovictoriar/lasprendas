@@ -241,7 +241,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: IconButton(

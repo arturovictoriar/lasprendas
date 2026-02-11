@@ -18,7 +18,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final l10n = AppLocalizations.of(context)!;
     
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(l10n.profileTitle, style: const TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
