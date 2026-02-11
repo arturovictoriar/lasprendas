@@ -21,11 +21,13 @@ export class VirtualTryOnUseCase {
         private readonly imageProcessorService: ImageProcessorService,
         @InjectQueue('try-on')
         private readonly tryOnQueue: Queue,
+        @InjectQueue('garment-analysis')
+        private readonly garmentAnalysisQueue: Queue,
         @Inject(I_STORAGE_SERVICE)
         private readonly storageService: IStorageServiceInterface,
     ) { }
 
-    async execute(garmentImageKeys: string[], category: string, userId: string, garmentIds?: string[], personType: string = 'female', garmentHashes?: string[]): Promise<{ sessionId: string, uploadedGarments: Garment[] }> {
+    async execute(garmentImageKeys: string[], userId: string, garmentIds?: string[], personType: string = 'female', garmentHashes?: string[]): Promise<{ sessionId: string, uploadedGarments: Garment[] }> {
         // 0. Check for backpressure (Queue limit)
         const counts = await this.tryOnQueue.getJobCounts();
         if (counts.waiting > 15) {
@@ -36,8 +38,16 @@ export class VirtualTryOnUseCase {
         const uploadedGarments = await Promise.all(garmentImageKeys.map(async (key, index) => {
             const url = this.storageService.getFileUrl(key);
             const hash = garmentHashes && garmentHashes[index] ? garmentHashes[index] : undefined;
-            const garment = new Garment(url, category, new Date(), userId, null, undefined, hash);
-            return await this.garmentRepository.save(garment);
+            const garment = new Garment(url, new Date(), userId, null, null, null, undefined, hash);
+            const savedGarment = await this.garmentRepository.save(garment);
+
+            // Trigger AI analysis for the new garment
+            await this.garmentAnalysisQueue.add('analyze-garment', {
+                garmentId: savedGarment.id,
+                userId: userId,
+            });
+
+            return savedGarment;
         }));
 
         const existingGarments = garmentIds ? await Promise.all(garmentIds.map(id => this.garmentRepository.findById(id, userId))) : [];

@@ -51,7 +51,6 @@ export class TryOnController {
 
     @Post()
     async createSession(
-        @Body('category') category: string,
         @Request() req: any,
         @Body('garmentKeys') garmentKeys?: string[],
         @Body('garmentIds') garmentIds?: string | string[],
@@ -63,7 +62,7 @@ export class TryOnController {
         const hashes = Array.isArray(garmentHashes) ? garmentHashes : [];
 
         try {
-            const { sessionId, uploadedGarments } = await this.virtualTryOnUseCase.execute(keys, category || 'clothing', req.user.userId, ids, personType || 'female', hashes);
+            const { sessionId, uploadedGarments } = await this.virtualTryOnUseCase.execute(keys, req.user.userId, ids, personType || 'female', hashes);
             return {
                 success: true,
                 id: sessionId,

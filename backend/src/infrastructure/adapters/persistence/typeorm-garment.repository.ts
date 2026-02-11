@@ -14,10 +14,12 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
 
     async save(garment: Garment): Promise<Garment> {
         const schema = new GarmentSchema();
+        if (garment.id) schema.id = garment.id;
         schema.originalUrl = garment.originalUrl;
-        schema.category = garment.category;
         schema.userId = garment.userId;
         schema.hash = garment.hash || null;
+        schema.metadata = garment.metadata || null;
+        schema.embedding = garment.embedding || null;
 
         const saved = await this.repository.save(schema);
         return this.mapToEntity(saved);
@@ -30,12 +32,13 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
     private mapToEntity(schema: GarmentSchema): Garment {
         return new Garment(
             schema.originalUrl,
-            schema.category,
             schema.createdAt,
             schema.userId,
+            schema.metadata,
+            schema.embedding,
             schema.deletedAt,
             schema.id,
-            schema.hash
+            schema.hash ?? undefined,
         );
     }
 
@@ -55,6 +58,16 @@ export class TypeOrmGarmentRepository implements IGarmentRepository {
         const garments = await this.repository.find({
             where: { userId, deletedAt: IsNull() },
             order: { createdAt: 'DESC' }
+        });
+        return garments.map(g => this.mapToEntity(g));
+    }
+
+    async findUnprocessed(): Promise<Garment[]> {
+        const garments = await this.repository.find({
+            where: {
+                metadata: IsNull(),
+                deletedAt: IsNull()
+            }
         });
         return garments.map(g => this.mapToEntity(g));
     }

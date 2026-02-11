@@ -135,7 +135,7 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> uploadGarments(List<File> images, String category, {List<String>? garmentIds, String personType = 'female', List<String>? hashes}) async {
+  static Future<Map<String, dynamic>> uploadGarments(List<File> images, {List<String>? garmentIds, String personType = 'female', List<String>? hashes}) async {
     final List<String> garmentKeys = [];
     final List<String> garmentHashes = [];
     final List<String> finalGarmentIds = garmentIds != null ? List.from(garmentIds) : [];
@@ -175,7 +175,6 @@ class ApiService {
       Uri.parse('$baseUrl/try-on'),
       headers: await _headers(),
       body: json.encode({
-        'category': category,
         'personType': personType,
         'garmentKeys': garmentKeys,
         'garmentIds': finalGarmentIds,
@@ -258,6 +257,40 @@ class ApiService {
       throw Exception('Failed to fetch profile: ${response.body}');
     }
   }
+  static Future<List<dynamic>> smartSearch({String? query, String? color, String? category, String? subcategory}) async {
+    final queryParams = <String, String>{
+      if (query != null && query.isNotEmpty) 'q': query,
+      if (color != null && color.isNotEmpty) 'color': color,
+      if (category != null && category.isNotEmpty) 'category': category,
+      if (subcategory != null && subcategory.isNotEmpty) 'subcategory': subcategory,
+    };
+
+    final uri = Uri.parse('$baseUrl/filter/smart-search').replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Smart search failed: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> smartSearchSessions({String? query, String? category}) async {
+    final queryParams = <String, String>{
+      if (query != null && query.isNotEmpty) 'q': query,
+      if (category != null && category.isNotEmpty) 'category': category,
+    };
+
+    final uri = Uri.parse('$baseUrl/filter/smart-search-sessions').replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Smart search sessions failed: ${response.body}');
+    }
+  }
+
   static String getFullImageUrl(String? path) {
     if (path == null || path.isEmpty) return '';
     if (path.startsWith('http')) return path;

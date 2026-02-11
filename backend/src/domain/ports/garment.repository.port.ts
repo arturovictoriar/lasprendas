@@ -5,6 +5,7 @@ export interface IGarmentRepository {
     findById(id: string, userId: string): Promise<Garment | null>;
     findByHash(hash: string, userId: string): Promise<Garment | null>;
     findAll(userId: string): Promise<Garment[]>;
+    findUnprocessed(): Promise<Garment[]>;
     delete(id: string, userId: string): Promise<void>;
 }
 

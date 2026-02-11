@@ -33,6 +33,15 @@ import { JwtStrategy } from './infrastructure/adapters/auth/jwt.strategy';
 import { TryOnProcessor } from './application/processors/try-on.processor';
 import { RedisService } from './infrastructure/adapters/persistence/redis.service';
 import { MailService } from './infrastructure/adapters/mail/mail.service';
+import { I_AI_METADATA_SERVICE } from './domain/ports/ai-metadata.service.port';
+import { GeminiAiMetadataAdapter } from './infrastructure/adapters/external/gemini-ai-metadata.adapter';
+import { GarmentAnalysisProcessor } from './infrastructure/adapters/queue/garment-analysis.processor';
+import { I_SEARCH_SERVICE } from './domain/ports/search.service.port';
+import { TypeOrmSearchAdapter } from './infrastructure/adapters/persistence/typeorm-search.adapter';
+import { FilterController } from './infrastructure/controllers/filter.controller';
+import { GarmentSyncScheduler } from './infrastructure/adapters/queue/garment-sync.scheduler';
+import { SessionAnalysisProcessor } from './infrastructure/adapters/queue/session-analysis.processor';
+import { SessionSyncScheduler } from './infrastructure/adapters/queue/session-sync.scheduler';
 
 @Module({
   imports: [
@@ -81,6 +90,12 @@ import { MailService } from './infrastructure/adapters/mail/mail.service';
     BullModule.registerQueue({
       name: 'try-on',
     }),
+    BullModule.registerQueue({
+      name: 'garment-analysis',
+    }),
+    BullModule.registerQueue({
+      name: 'session-analysis',
+    }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -92,12 +107,12 @@ import { MailService } from './infrastructure/adapters/mail/mail.service';
       ],
     }),
   ],
-  controllers: [TryOnController, AuthController, StorageController],
+  controllers: [TryOnController, AuthController, StorageController, FilterController],
   providers: [
     VirtualTryOnUseCase,
     AuthService,
     JwtStrategy,
-    ...(process.env.ENABLE_WORKER === 'true' ? [TryOnProcessor] : []),
+    ...(process.env.ENABLE_WORKER === 'true' ? [TryOnProcessor, GarmentAnalysisProcessor, GarmentSyncScheduler, SessionAnalysisProcessor, SessionSyncScheduler] : []),
     {
       provide: I_GARMENT_REPOSITORY,
       useClass: TypeOrmGarmentRepository,
@@ -117,6 +132,14 @@ import { MailService } from './infrastructure/adapters/mail/mail.service';
     {
       provide: I_STORAGE_SERVICE,
       useClass: S3StorageAdapter,
+    },
+    {
+      provide: I_SEARCH_SERVICE,
+      useClass: TypeOrmSearchAdapter,
+    },
+    {
+      provide: I_AI_METADATA_SERVICE,
+      useClass: GeminiAiMetadataAdapter,
     },
     ImageProcessorService,
     RedisService,

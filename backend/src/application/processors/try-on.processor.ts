@@ -9,6 +9,8 @@ import { ImageProcessorService } from '../services/image-processor.service';
 import { Garment } from '../../domain/entities/garment.entity';
 import { I_STORAGE_SERVICE, IStorageService } from '../../domain/ports/storage.service.port';
 import type { IStorageService as IStorageServiceInterface } from '../../domain/ports/storage.service.port';
+import { I_AI_METADATA_SERVICE } from '../../domain/ports/ai-metadata.service.port';
+import type { IAiMetadataService } from '../../domain/ports/ai-metadata.service.port';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -25,6 +27,8 @@ export class TryOnProcessor extends WorkerHost {
         private readonly imageProcessorService: ImageProcessorService,
         @Inject(I_STORAGE_SERVICE)
         private readonly storageService: IStorageServiceInterface,
+        @Inject(I_AI_METADATA_SERVICE)
+        private readonly aiMetadataService: IAiMetadataService,
     ) {
         super();
     }
@@ -80,7 +84,17 @@ REALISM & CONSISTENCY:
             const resultKey = `results/result-${Date.now()}.png`;
             const resultUrl = await this.storageService.uploadFile(resultKey, resultBuffer, 'image/png');
 
-            // 5. Update session in DB
+            // 5. AI Analysis of the resulting outfit
+            try {
+                const sessionMetadata = await this.aiMetadataService.extractMetadata(resultBuffer);
+                const sessionEmbedding = await this.aiMetadataService.generateEmbedding(sessionMetadata.ai_description.en);
+                session.metadata = sessionMetadata;
+                session.embedding = sessionEmbedding;
+            } catch (aiError) {
+                console.warn('[TryOnProcessor] AI analysis failed for session, but continuing with resultUrl:', aiError);
+            }
+
+            // 6. Update session in DB
             session.resultUrl = resultUrl;
             await this.sessionRepository.save(session);
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, Not } from 'typeorm';
 import { ITryOnSessionRepository } from '../../../domain/ports/try-on-session.repository.port';
 import { TryOnSession } from '../../../domain/entities/try-on-session.entity';
 import { TryOnSessionSchema } from './try-on-session.schema';
@@ -20,6 +20,8 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         schema.mannequinUrl = session.mannequinUrl;
         schema.resultUrl = session.resultUrl;
         schema.userId = session.userId;
+        schema.metadata = session.metadata || null;
+        schema.embedding = session.embedding || null;
 
         // Map garments to schemas (assuming they already exist)
         schema.garments = session.garments.map(g => {
@@ -54,13 +56,36 @@ export class TypeOrmTryOnSessionRepository implements ITryOnSessionRepository {
         return list.map(item => this.mapToEntity(item));
     }
 
+    async findUnprocessed(): Promise<TryOnSession[]> {
+        const list = await this.repository.find({
+            where: {
+                resultUrl: Not(IsNull()),
+                metadata: IsNull(),
+                deletedAt: IsNull()
+            },
+            relations: ['garments']
+        });
+        return list.map(item => this.mapToEntity(item));
+    }
+
     private mapToEntity(schema: TryOnSessionSchema): TryOnSession {
         return new TryOnSession(
             schema.mannequinUrl,
             schema.resultUrl,
-            (schema.garments || []).map(g => new Garment(g.originalUrl, g.category, g.createdAt, schema.userId, g.deletedAt, g.id)),
+            (schema.garments || []).map(g => new Garment(
+                g.originalUrl,
+                g.createdAt,
+                schema.userId,
+                g.metadata,
+                g.embedding,
+                g.deletedAt,
+                g.id,
+                g.hash ?? undefined
+            )),
             schema.createdAt,
             schema.userId,
+            schema.metadata,
+            schema.embedding,
             schema.deletedAt,
             schema.id
         );

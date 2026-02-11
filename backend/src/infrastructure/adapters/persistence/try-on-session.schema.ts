@@ -26,6 +26,12 @@ export class TryOnSessionSchema {
     @CreateDateColumn()
     createdAt: Date;
 
+    @Column({ type: 'jsonb', nullable: true })
+    metadata: any | null;
+
+    @Column({ type: 'vector', length: 768, nullable: true })
+    embedding: number[] | null;
+
     @Column({ type: 'timestamp', nullable: true })
     deletedAt: Date | null;
 }

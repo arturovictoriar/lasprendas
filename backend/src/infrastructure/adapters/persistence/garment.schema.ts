@@ -9,9 +9,6 @@ export class GarmentSchema {
     originalUrl: string;
 
     @Column()
-    category: string;
-
-    @Column()
     userId: string;
 
     @CreateDateColumn()
@@ -19,6 +16,12 @@ export class GarmentSchema {
 
     @Column({ type: 'text', nullable: true })
     hash: string | null;
+
+    @Column({ type: 'jsonb', nullable: true })
+    metadata: any | null;
+
+    @Column({ type: 'vector', length: 768, nullable: true })
+    embedding: number[] | null;
 
     @Column({ type: 'timestamp', nullable: true })
     deletedAt: Date | null;

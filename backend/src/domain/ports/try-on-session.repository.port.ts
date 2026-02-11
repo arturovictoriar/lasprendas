@@ -4,6 +4,7 @@ export interface ITryOnSessionRepository {
     save(session: TryOnSession): Promise<TryOnSession>;
     findById(id: string, userId: string): Promise<TryOnSession | null>;
     findAll(userId: string): Promise<TryOnSession[]>;
+    findUnprocessed(): Promise<TryOnSession[]>;
     delete(id: string, userId: string): Promise<void>;
 }
 

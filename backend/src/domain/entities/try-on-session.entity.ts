@@ -7,6 +7,8 @@ export class TryOnSession {
         public readonly garments: Garment[],
         public readonly createdAt: Date,
         public readonly userId: string,
+        public metadata: any | null = null,
+        public embedding: number[] | null = null,
         public readonly deletedAt: Date | null = null,
         public readonly id?: string,
     ) { }
