@@ -153,6 +153,60 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       print('Error loading state: $e');
     }
+    
+    // Refresh data from API to get latest metadata (tags, etc)
+    _refreshSelectedWithLatestData();
+  }
+
+  Future<void> _refreshSelectedWithLatestData() async {
+    try {
+      // Only refresh if we have items that come from the backend (Maps)
+      final hasBackendItems = _selectedItems.any((i) => i is Map) || 
+                             _processingItems.any((i) => i is Map);
+      
+      if (!hasBackendItems) return;
+
+      final freshGarments = await ApiService.getGarments();
+      final freshGarmentMap = {
+        for (var g in freshGarments)
+          if (g['id'] != null) g['id'].toString(): g
+      };
+
+      bool hasChanges = false;
+      
+      // Update _selectedItems
+      for (int i = 0; i < _selectedItems.length; i++) {
+        final item = _selectedItems[i];
+        if (item is Map && item['id'] != null) {
+          final id = item['id'].toString();
+          if (freshGarmentMap.containsKey(id)) {
+            // Check if metadata actually changed to avoid unnecessary rebuilds/writes?
+            // For simplicity and robustness, we just update.
+            _selectedItems[i] = freshGarmentMap[id];
+            hasChanges = true;
+          }
+        }
+      }
+
+      // Update _processingItems
+      for (int i = 0; i < _processingItems.length; i++) {
+        final item = _processingItems[i];
+        if (item is Map && item['id'] != null) {
+          final id = item['id'].toString();
+          if (freshGarmentMap.containsKey(id)) {
+            _processingItems[i] = freshGarmentMap[id];
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasChanges && mounted) {
+        setState(() {});
+        _savePersistedState();
+      }
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
   }
 
   Future<void> _clearPersistedState() async {
@@ -275,6 +329,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+
+    // Always refresh data from API when returning from Closet to ensure tags/metadata are up to date
+    await _refreshSelectedWithLatestData();
 
     if (result != null) {
       if (result is List) {
