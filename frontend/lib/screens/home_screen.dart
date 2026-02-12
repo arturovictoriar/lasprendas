@@ -118,7 +118,10 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (restoredItems.isNotEmpty) {
-          setState(() => _selectedItems.addAll(restoredItems));
+          setState(() {
+            _selectedItems.clear();
+            _selectedItems.addAll(restoredItems);
+          });
         }
       }
 
@@ -308,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
       _isRetrying = false;
       _isCancelled = false;
-      _statusMessage = AppLocalizations.of(context)!.dressingStatus1 + '...'; // "Alistando..." -> "Vistiendo..."
+      _statusMessage = AppLocalizations.of(context)!.dressingStatus1 + '...';
       _processingItems = List.from(_selectedItems); // Capture current selection
       _processingPersonType = requestedPersonType; // Store gender for UI
     });
@@ -335,7 +338,6 @@ class _HomeScreenState extends State<HomeScreen> {
         try {
           final response = await ApiService.uploadGarments(
             files, 
-            'clothing', 
             garmentIds: garmentIds,
             personType: requestedPersonType,
             hashes: hashes,
@@ -343,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
           
           sessionId = response['id'] ?? response['sessionId'];
           if (sessionId == null) throw 'No se recibió el ID de la sesión';
-          // Update _selectedItems to replace Files with resolved Garments (new or matched by hash)
+          
           if (response['resolvedGarments'] != null && mounted) {
             final List<dynamic> resolved = response['resolvedGarments'];
             setState(() {
@@ -354,6 +356,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   final garment = Map<String, dynamic>.from(resolved[i]);
                   garment['_localFilePath'] = fileToRemove.path; // Attach the local path
                   _selectedItems[index] = garment;
+                  
+                  // Keep processing items in sync
+                  final procIndex = _processingItems.indexWhere((item) => item is File && item.path == fileToRemove.path);
+                  if (procIndex != -1) {
+                    _processingItems[procIndex] = garment;
+                  }
                 }
               }
             });
@@ -365,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!mounted) return;
             setState(() {
               _isRetrying = true;
-              _statusMessage = AppLocalizations.of(context)!.waiting; // "El vestier está muy lleno hoy... Reintentando..." -> "Esperando..."
+              _statusMessage = AppLocalizations.of(context)!.waiting;
             });
             await Future.delayed(const Duration(seconds: 5));
           } else {
@@ -377,9 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (success && sessionId != null && !_isCancelled) {
         if (!mounted) return;
-        // Message will be handled by the polling loop sequence
         await _storage.write(key: 'processing_session_id', value: sessionId.toString());
-        await _savePersistedState(); // Save processing_items and person_type
+        await _savePersistedState();
         await _pollSessionStatus(sessionId.toString(), requestedPersonType);
       }
     } catch (e) {
@@ -597,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 imageUrl: ApiService.getFullImageUrl(_resultPath), 
                                 key: ValueKey(_resultPath),
                                 fit: BoxFit.contain,
-                                memCacheHeight: 1200,
+                                memCacheHeight: 2400,
                                 fadeInDuration: Duration.zero,
                                 fadeOutDuration: Duration.zero,
                                 placeholder: (context, url) => const Center(
@@ -694,19 +701,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             child: ClipRRect(
                                               borderRadius: BorderRadius.circular(5),
-                                              child: item is File 
-                                                ? Image.file(item, fit: BoxFit.cover)
-                                                : CachedNetworkImage(
-                                                    imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
-                                                    fit: BoxFit.cover,
-                                                    placeholder: (context, url) {
-                                                      if (item['_localFilePath'] != null) {
-                                                        final file = File(item['_localFilePath']);
-                                                        return Image.file(file, fit: BoxFit.cover);
-                                                      }
-                                                      return Container(color: Colors.white10);
-                                                    },
-                                                  ),
+                                                child: item is File 
+                                                  ? Image.file(item, fit: BoxFit.cover, cacheWidth: 100)
+                                                  : CachedNetworkImage(
+                                                      imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
+                                                      fit: BoxFit.cover,
+                                                      memCacheWidth: 100,
+                                                      placeholder: (context, url) {
+                                                        if (item['_localFilePath'] != null) {
+                                                          final file = File(item['_localFilePath']);
+                                                          return Image.file(file, fit: BoxFit.cover, cacheWidth: 100);
+                                                        }
+                                                        return Container(color: Colors.white10);
+                                                      },
+                                                    ),
                                             ),
                                           );
                                         }).toList(),
@@ -783,43 +791,50 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       GestureDetector(
                         onLongPress: () {
-                          final heroTag = 'selected-${index}-${isFile ? item.path : item['id']}';
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => OutfitDetailScreen(
                                 imageUrl: isFile ? null : ApiService.getFullImageUrl(item['originalUrl']),
                                 localFile: isFile ? item : null,
-                                tag: heroTag,
                               ),
                             ),
                           );
                         },
-                        child: Hero(
-                          tag: 'selected-${index}-${isFile ? item.path : item['id']}',
-                          child: Container(
-                            width: 80,
-                            margin: const EdgeInsets.only(right: 15),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: isFile 
-                                  ? Image.file(item, fit: BoxFit.cover, cacheWidth: 200)
-                                    : CachedNetworkImage(
-                                        imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
-                                        fit: BoxFit.cover,
-                                        memCacheWidth: 200, 
-                                        placeholder: (context, url) {
-                                          if (item['_localFilePath'] != null) {
-                                            final file = File(item['_localFilePath']);
-                                            return Image.file(file, fit: BoxFit.cover, cacheWidth: 200);
-                                          }
-                                          return Container(color: Colors.white.withOpacity(0.05));
-                                        },
-                                      ),
+                        child: Container(
+                          width: 90,
+                          margin: const EdgeInsets.only(right: 15),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white10, width: 1),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                isFile 
+                                ? Image.file(item, fit: BoxFit.cover, cacheWidth: 400)
+                                : ApiService.getFullImageUrl(item['originalUrl'] ?? '').isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: ApiService.getFullImageUrl(item['originalUrl']),
+                                      fit: BoxFit.cover,
+                                      memCacheWidth: 400, 
+                                      placeholder: (context, url) {
+                                        if (item['_localFilePath'] != null) {
+                                          final file = File(item['_localFilePath']);
+                                          return Image.file(file, fit: BoxFit.cover, cacheWidth: 400);
+                                        }
+                                        return Container(color: Colors.white.withOpacity(0.05));
+                                      },
+                                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white24),
+                                    )
+                                  : Container(
+                                      color: Colors.white.withOpacity(0.05),
+                                      child: const Icon(Icons.broken_image, color: Colors.white24),
+                                    ),
+                                if (!isFile) _buildCategoryBadge(item as Map<String, dynamic>),
+                              ],
                             ),
                           ),
                         ),
@@ -905,6 +920,51 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ),
     ),
+    );
+  }
+
+  Widget _buildCategoryBadge(Map<String, dynamic> garment) {
+    dynamic metadataRaw = garment['metadata'];
+    if (metadataRaw == null) return const SizedBox.shrink();
+
+    Map<String, dynamic>? metadata;
+    if (metadataRaw is List && metadataRaw.isNotEmpty) {
+      metadata = metadataRaw.first as Map<String, dynamic>?;
+    } else if (metadataRaw is Map) {
+      metadata = Map<String, dynamic>.from(metadataRaw);
+    }
+
+    if (metadata == null || metadata['physical'] == null) {
+      return const SizedBox.shrink();
+    }
+    final cat = metadata['physical']['category'];
+    if (cat == null) return const SizedBox.shrink();
+    
+    final categoryName = Localizations.localeOf(context).languageCode == 'es' 
+        ? (cat['es'] ?? '') 
+        : (cat['en'] ?? '');
+
+    if (categoryName.isEmpty) return const SizedBox.shrink();
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        color: Colors.black54,
+        child: Text(
+          categoryName,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
     );
   }
 }

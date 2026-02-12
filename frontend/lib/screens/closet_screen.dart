@@ -35,6 +35,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   bool _isSmartSearchLoading = false;
   List<dynamic>? _aiResults;
   bool _isSmartSearchActive = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -76,23 +77,26 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
         }
       }
     }
+    _loadData();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final l10n = AppLocalizations.of(context)!;
-    _selectedCategory = l10n.allCategories;
-    _categories = [
-      l10n.allCategories,
-      l10n.shirtsCategory,
-      l10n.pantsCategory,
-      l10n.shoesCategory,
-      l10n.skirtsCategory,
-      l10n.jacketsCategory,
-      l10n.accessoriesCategory,
-    ];
-    _loadData();
+    if (!_isInitialized) {
+      final l10n = AppLocalizations.of(context)!;
+      _selectedCategory = l10n.allCategories;
+      _categories = [
+        l10n.allCategories,
+        l10n.shirtsCategory,
+        l10n.pantsCategory,
+        l10n.shoesCategory,
+        l10n.skirtsCategory,
+        l10n.jacketsCategory,
+        l10n.accessoriesCategory,
+      ];
+      _isInitialized = true;
+    }
   }
 
   @override
@@ -166,8 +170,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   List<dynamic> get _filteredGarments {
     if (_selectedCategory == AppLocalizations.of(context)!.allCategories) return _garments;
     return _garments.where((g) {
-      if (g['metadata'] == null || g['metadata']['physical'] == null) return false;
-      final cat = g['metadata']['physical']['category'];
+      dynamic metadataRaw = g['metadata'];
+      Map<String, dynamic>? metadata;
+      if (metadataRaw is List && metadataRaw.isNotEmpty) {
+        metadata = metadataRaw.first as Map<String, dynamic>?;
+      } else if (metadataRaw is Map) {
+        metadata = Map<String, dynamic>.from(metadataRaw);
+      }
+
+      if (metadata == null || metadata['physical'] == null) return false;
+      final cat = metadata['physical']['category'];
       final categoryName = (cat['en'] ?? cat['es'] ?? '').toString().toLowerCase();
       final categoryNameEs = (cat['es'] ?? '').toString().toLowerCase();
       return categoryName == _selectedCategory.toLowerCase() || categoryNameEs == _selectedCategory.toLowerCase();
@@ -180,8 +192,16 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     return _sessions.where((session) {
       final garments = session['garments'] as List<dynamic>? ?? [];
       return garments.any((g) {
-        if (g['metadata'] == null || g['metadata']['physical'] == null) return false;
-        final cat = g['metadata']['physical']['category'];
+        dynamic metadataRaw = g['metadata'];
+        Map<String, dynamic>? metadata;
+        if (metadataRaw is List && metadataRaw.isNotEmpty) {
+          metadata = metadataRaw.first as Map<String, dynamic>?;
+        } else if (metadataRaw is Map) {
+          metadata = Map<String, dynamic>.from(metadataRaw);
+        }
+
+        if (metadata == null || metadata['physical'] == null) return false;
+        final cat = metadata['physical']['category'];
         final categoryName = (cat['en'] ?? cat['es'] ?? '').toString().toLowerCase();
         final categoryNameEs = (cat['es'] ?? '').toString().toLowerCase();
         return categoryName == _selectedCategory.toLowerCase() || categoryNameEs == _selectedCategory.toLowerCase();
@@ -386,6 +406,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             setState(() { _isSmartSearchActive = false; _aiResults = null; });
           }) : null,
         ),
+        onChanged: (val) {
+          if (val.isEmpty || val.length == 1) setState(() {});
+        },
         onSubmitted: (_) => _handleSmartSearch(),
       ),
     );
@@ -413,22 +436,52 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: Colors.white12),
+          const SizedBox(height: 20),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLibraryTab() {
+    final l10n = AppLocalizations.of(context)!;
+    if (_garments.isEmpty && !_isLoading) {
+      return _buildEmptyState(l10n.noGarmentsSaved, Icons.checkroom_outlined);
+    }
+
     final listToShow = _isSmartSearchActive && _aiResults != null ? _aiResults! : _filteredGarments;
+    
     return Column(
       children: [
         _buildSearchBar(),
         _buildCategoryFilters(),
         if (_isSmartSearchLoading) const LinearProgressIndicator(),
         Expanded(
-          child: GridView.builder(
+          child: listToShow.isEmpty 
+            ? Center(child: Text(l10n.localeName == 'es' ? 'No se encontraron prendas' : 'No garments found', style: const TextStyle(color: Colors.white38)))
+            : GridView.builder(
             padding: const EdgeInsets.all(15),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
             itemCount: listToShow.length,
-            itemBuilder: (context, index) {
-              final garment = listToShow[index];
-              final isSelected = _selectedInSession.any((g) => g is Map && g['id'].toString() == garment['id'].toString());
-              return GestureDetector(
+                itemBuilder: (context, index) {
+                  final garment = listToShow[index];
+                  final isSelected = _selectedInSession.any((g) => 
+                    g is Map && 
+                    g['id'] != null && 
+                    garment['id'] != null && 
+                    g['id'].toString() == garment['id'].toString()
+                  );
+                  return GestureDetector(
                 onTap: () {
                   if (_isGarmentSelectionMode) {
                     _toggleSelection(garment);
@@ -440,25 +493,42 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                   } else {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
                       imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
-                      tag: 'garment-${garment['id']}',
                     )));
                   }
+                },
+                onLongPress: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                    imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                  )));
                 },
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? Colors.blue : Colors.white10),
+                    border: Border.all(color: isSelected ? Colors.blueAccent : Colors.white10, width: isSelected ? 2.5 : 1),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        CachedNetworkImage(
-                          imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(color: Colors.white05),
-                        ),
+                        ApiService.getFullImageUrl(garment['originalUrl']).isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                              errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white12),
+                            )
+                          : Container(
+                              color: Colors.white.withOpacity(0.05),
+                              child: const Icon(Icons.broken_image, color: Colors.white12),
+                            ),
+                        if (isSelected) 
+                          Container(
+                            color: Colors.black26,
+                            child: const Center(
+                              child: Icon(Icons.check_circle, color: Colors.blueAccent, size: 30),
+                            ),
+                          ),
                         _buildCategoryBadge(garment),
                       ],
                     ),
@@ -473,16 +543,29 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Widget _buildOutfitsTab() {
+    final l10n = AppLocalizations.of(context)!;
+    if (_sessions.isEmpty && !_isLoading) {
+      return _buildEmptyState(l10n.noOutfitsSaved, Icons.auto_awesome_motion_outlined);
+    }
+
     final listToShow = _isSmartSearchActive && _aiResults != null ? _aiResults! : _filteredSessions;
+
     return Column(
       children: [
         _buildSearchBar(),
         _buildCategoryFilters(),
         if (_isSmartSearchLoading) const LinearProgressIndicator(),
         Expanded(
-          child: GridView.builder(
+          child: listToShow.isEmpty 
+            ? Center(child: Text(l10n.localeName == 'es' ? 'No se encontraron outfits' : 'No outfits found', style: const TextStyle(color: Colors.white38)))
+            : GridView.builder(
             padding: const EdgeInsets.all(15),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, 
+              crossAxisSpacing: 15, 
+              mainAxisSpacing: 15,
+              childAspectRatio: 0.6, // Taller portrait for outfits
+            ),
             itemCount: listToShow.length,
             itemBuilder: (context, index) {
               final session = listToShow[index];
@@ -500,11 +583,48 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                     if (result != null && result is Map && result['type'] == 'retake') Navigator.pop(context, result);
                   }
                 },
+                onLongPress: () {
+                  if (session['resultUrl'] != null) {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                      imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
+                    )));
+                  }
+                },
                 child: Container(
-                  decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(
+                    color: Colors.black, 
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: isSelected ? Colors.blueAccent : Colors.transparent, width: isSelected ? 2.5 : 0),
+                  ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
-                    child: CachedNetworkImage(imageUrl: ApiService.getFullImageUrl(session['resultUrl']), fit: BoxFit.cover),
+                    borderRadius: BorderRadius.circular(15),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ApiService.getFullImageUrl(session['resultUrl']).isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: ApiService.getFullImageUrl(session['resultUrl']), 
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                              placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                              errorWidget: (context, url, error) => const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
+                            )
+                          : Container(
+                              color: Colors.white.withOpacity(0.05),
+                              child: const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 40)),
+                            ),
+                        if (isSelected)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.check_circle, color: Colors.blueAccent, size: 40),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -514,35 +634,97 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       ],
     );
   }
+
+  Widget _buildCategoryBadge(Map<String, dynamic> garment) {
+    dynamic metadataRaw = garment['metadata'];
+    if (metadataRaw == null) return const SizedBox.shrink();
+
+    // Handle case where metadata is accidentally saved as a List
+    Map<String, dynamic>? metadata;
+    if (metadataRaw is List && metadataRaw.isNotEmpty) {
+      metadata = metadataRaw.first as Map<String, dynamic>?;
+    } else if (metadataRaw is Map) {
+      metadata = Map<String, dynamic>.from(metadataRaw);
+    }
+
+    if (metadata == null || metadata['physical'] == null) {
+      return const SizedBox.shrink();
+    }
+    final cat = metadata['physical']['category'];
+    final categoryName = Localizations.localeOf(context).languageCode == 'es' 
+        ? (cat['es'] ?? '') 
+        : (cat['en'] ?? '');
+
+    if (categoryName.isEmpty) return const SizedBox.shrink();
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        color: Colors.black54,
+        child: Text(
+          categoryName,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
 }
 
 class OutfitDetailScreen extends StatelessWidget {
-  final String imageUrl;
-  final String tag;
+  final String? imageUrl;
+  final File? localFile;
 
-  const OutfitDetailScreen({super.key, required this.imageUrl, required this.tag});
+  const OutfitDetailScreen({
+    super.key, 
+    this.imageUrl, 
+    this.localFile,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => Navigator.pop(context),
-        child: Center(
-          child: Hero(
-            tag: tag,
+      body: Stack(
+        children: [
+          Center(
             child: InteractiveViewer(
               minScale: 1.0,
               maxScale: 4.0,
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain,
-                placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white24),
-                errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
+              child: localFile != null
+                  ? Image.file(localFile!, fit: BoxFit.contain)
+                  : (imageUrl != null && imageUrl!.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl!,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white24),
+                          errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
+                        )
+                      : const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 80)),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -655,58 +837,80 @@ class OutfitManagementScreen extends StatelessWidget {
                   style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 10),
-                Expanded(
+                SizedBox(
+                  height: 110,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: garments.length,
                     itemBuilder: (context, index) {
                       final garment = garments[index];
                       String categoryName = '';
-                      if (garment['metadata'] != null && garment['metadata']['physical'] != null) {
-                        final cat = garment['metadata']['physical']['category'];
+                      dynamic metadataRaw = garment['metadata'];
+                      Map<String, dynamic>? metadata;
+                      if (metadataRaw is List && metadataRaw.isNotEmpty) {
+                        metadata = metadataRaw.first as Map<String, dynamic>?;
+                      } else if (metadataRaw is Map) {
+                        metadata = Map<String, dynamic>.from(metadataRaw);
+                      }
+
+                      if (metadata != null && metadata['physical'] != null) {
+                        final cat = metadata['physical']['category'];
                         categoryName = Localizations.localeOf(context).languageCode == 'es' 
                             ? (cat['es'] ?? '') 
                             : (cat['en'] ?? '');
                       }
-                      return Container(
-                        width: 80,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(11),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              CachedNetworkImage(
-                                imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(color: Colors.white05),
-                              ),
-                              if (categoryName.isNotEmpty)
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                                    color: Colors.black54,
-                                    child: Text(
-                                      categoryName,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
+                            imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                          )));
+                        },
+                        child: Container(
+                          width: 100,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white10, width: 1),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ApiService.getFullImageUrl(garment['originalUrl']).isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(color: Colors.white.withOpacity(0.05)),
+                                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10),
+                                    )
+                                  : Container(
+                                      color: Colors.white.withOpacity(0.05),
+                                      child: const Icon(Icons.broken_image, color: Colors.white10),
+                                    ),
+                                if (categoryName.isNotEmpty)
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                                      color: Colors.black54,
+                                      child: Text(
+                                        categoryName,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );

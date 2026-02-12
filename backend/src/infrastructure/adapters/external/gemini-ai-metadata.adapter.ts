@@ -29,7 +29,7 @@ export class GeminiAiMetadataAdapter implements IAiMetadataService {
     );
 
     const prompt = `
-Analyze the attached image of a garment and extract its metadata in the following JSON format.
+Analyze the attached image of a garment or accessory (shoes, bags, hats, jewelry, watches, etc.) and extract its metadata in the following JSON format.
 Keys must be exactly as specified in English.
 Values for descriptive fields must be an object with 'es' and 'en' keys for Spanish and English translations.
 
@@ -47,9 +47,9 @@ JSON Structure:
     "texture_pattern": { "es": "...", "en": "..." }
   },
   "design": {
-    "neckline": { "es": "...", "en": "..." },
-    "sleeve_length": { "es": "...", "en": "..." },
-    "fit": { "es": "...", "en": "..." },
+    "neckline": { "es": "...", "en": "..." }, // Use null if not applicable (e.g. for accessories)
+    "sleeve_length": { "es": "...", "en": "..." }, // Use null if not applicable
+    "fit": { "es": "...", "en": "..." }, // Use null if not applicable
     "closure_type": { "es": "...", "en": "..." },
     "details": [
       { "es": "...", "en": "..." }
@@ -69,7 +69,7 @@ JSON Structure:
   }
 }
 
-Be specific and professional. For colors, use standard CSS hex codes.
+Be specific and professional. For colors, use standard CSS hex codes. If a field (like neckline or sleeve_length) does not make sense for the item being analyzed (e.g. a bag or shoes), set its value to null.
 `;
 
     const imagePart = {
@@ -83,7 +83,13 @@ Be specific and professional. For colors, use standard CSS hex codes.
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
-      return JSON.parse(text) as AiMetadata;
+      const parsed = JSON.parse(text);
+
+      // If Gemini returns an array (sometimes happens with multiple items), take the first one
+      if (Array.isArray(parsed)) {
+        return (parsed[0] || {}) as AiMetadata;
+      }
+      return parsed as AiMetadata;
     } catch (error) {
       console.error('[GeminiAiMetadataAdapter] Error extracting metadata:', error);
       throw error;

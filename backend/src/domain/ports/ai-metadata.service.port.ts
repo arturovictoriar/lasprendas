@@ -11,10 +11,10 @@ export interface AiMetadata {
         texture_pattern: { es: string; en: string };
     };
     design: {
-        neckline: { es: string; en: string };
-        sleeve_length: { es: string; en: string };
-        fit: { es: string; en: string };
-        closure_type: { es: string; en: string };
+        neckline: { es: string; en: string } | null;
+        sleeve_length: { es: string; en: string } | null;
+        fit: { es: string; en: string } | null;
+        closure_type: { es: string; en: string } | null;
         details: Array<{ es: string; en: string }>;
     };
     context: {
