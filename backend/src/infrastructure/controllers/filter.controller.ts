@@ -20,7 +20,7 @@ export class FilterController {
         @Query('subcategory') subcategory: string,
         @Request() req: any,
     ) {
-        const userId = req.user.id;
+        const userId = req.user.userId;
 
         const results = await this.searchService.searchGarments({
             query,
@@ -40,7 +40,7 @@ export class FilterController {
         @Query('category') category: string,
         @Request() req: any,
     ) {
-        const userId = req.user.id;
+        const userId = req.user.userId;
         return this.searchService.searchSessions({
             query,
             category,

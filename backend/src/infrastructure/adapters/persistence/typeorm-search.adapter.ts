@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, Brackets } from 'typeorm';
 import { ISearchService, SearchFilters } from '../../../domain/ports/search.service.port';
 import { Garment } from '../../../domain/entities/garment.entity';
 import { GarmentSchema } from './garment.schema';
@@ -24,7 +24,11 @@ export class TypeOrmSearchAdapter implements ISearchService {
 
         let embedding: number[] | null = null;
         if (query) {
-            embedding = await this.aiMetadataService.generateEmbedding(query);
+            try {
+                embedding = await this.aiMetadataService.generateEmbedding(query);
+            } catch (error) {
+                console.warn('[TypeOrmSearchAdapter] Embedding generation failed, falling back to text search only', error);
+            }
         }
 
         const qb = this.garmentRepository.createQueryBuilder('garment')
@@ -44,13 +48,30 @@ export class TypeOrmSearchAdapter implements ISearchService {
             qb.andWhere("garment.metadata->'physical'->'dominant_color'->>'hex' = :colorHex", { colorHex });
         }
 
-        // Apply vector similarity search (pgvector)
-        if (embedding) {
-            const vectorStr = `[${embedding.join(',')}]`;
-            // Using a raw query part for the vector operator
-            qb.addSelect(`garment.embedding <=> '${vectorStr}'`, 'distance');
-            qb.andWhere('garment.embedding IS NOT NULL');
-            qb.orderBy('distance', 'ASC');
+        if (query) {
+            if (embedding) {
+                const vectorStr = `[${embedding.join(',')}]`;
+                qb.addSelect(`garment.embedding <=> '${vectorStr}'`, 'distance');
+            }
+
+            qb.andWhere(new Brackets(brackets => {
+                const textCondition = "garment.metadata::text ILIKE :searchQuery";
+                const params = { searchQuery: `%${query}%` };
+
+                if (embedding) {
+                    // Combine vector existence OR text match
+                    brackets.where('garment.embedding IS NOT NULL')
+                        .orWhere(textCondition, params);
+                } else {
+                    brackets.where(textCondition, params);
+                }
+            }));
+
+            if (embedding) {
+                qb.orderBy('distance', 'ASC', 'NULLS LAST');
+            } else {
+                qb.orderBy('garment.createdAt', 'DESC');
+            }
         } else {
             qb.orderBy('garment.createdAt', 'DESC');
         }
@@ -64,7 +85,11 @@ export class TypeOrmSearchAdapter implements ISearchService {
 
         let embedding: number[] | null = null;
         if (query) {
-            embedding = await this.aiMetadataService.generateEmbedding(query);
+            try {
+                embedding = await this.aiMetadataService.generateEmbedding(query);
+            } catch (error) {
+                console.warn('[TypeOrmSearchAdapter] Embedding generation failed, falling back to text search only', error);
+            }
         }
 
         const qb = this.sessionRepository.createQueryBuilder('session')
@@ -77,11 +102,29 @@ export class TypeOrmSearchAdapter implements ISearchService {
             qb.andWhere("(session.metadata->'physical'->'category'->>'en' = :category OR session.metadata->'physical'->'category'->>'es' = :category)", { category });
         }
 
-        if (embedding) {
-            const vectorStr = `[${embedding.join(',')}]`;
-            qb.addSelect(`session.embedding <=> '${vectorStr}'`, 'distance');
-            qb.andWhere('session.embedding IS NOT NULL');
-            qb.orderBy('distance', 'ASC');
+        if (query) {
+            if (embedding) {
+                const vectorStr = `[${embedding.join(',')}]`;
+                qb.addSelect(`session.embedding <=> '${vectorStr}'`, 'distance');
+            }
+
+            qb.andWhere(new Brackets(brackets => {
+                const textCondition = "session.metadata::text ILIKE :searchQuery";
+                const params = { searchQuery: `%${query}%` };
+
+                if (embedding) {
+                    brackets.where('session.embedding IS NOT NULL')
+                        .orWhere(textCondition, params);
+                } else {
+                    brackets.where(textCondition, params);
+                }
+            }));
+
+            if (embedding) {
+                qb.orderBy('distance', 'ASC', 'NULLS LAST');
+            } else {
+                qb.orderBy('session.createdAt', 'DESC');
+            }
         } else {
             qb.orderBy('session.createdAt', 'DESC');
         }
