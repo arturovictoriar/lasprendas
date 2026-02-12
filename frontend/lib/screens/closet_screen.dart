@@ -22,7 +22,6 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   List<dynamic> _sessions = [];
   bool _isLoading = true;
   late String _selectedCategory;
-  late List<String> _categories;
   
   final List<dynamic> _selectedInSession = [];
   List<dynamic> _confirmedGarments = [];
@@ -49,6 +48,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             _searchController.clear();
             _isSmartSearchActive = false;
             _aiResults = null;
+
+            // Reset category filter
+            _selectedCategory = AppLocalizations.of(context)!.allCategories;
 
             // Reset selection state
             _selectedInSession.clear();
@@ -86,17 +88,58 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     if (!_isInitialized) {
       final l10n = AppLocalizations.of(context)!;
       _selectedCategory = l10n.allCategories;
-      _categories = [
-        l10n.allCategories,
-        l10n.shirtsCategory,
-        l10n.pantsCategory,
-        l10n.shoesCategory,
-        l10n.skirtsCategory,
-        l10n.jacketsCategory,
-        l10n.accessoriesCategory,
-      ];
       _isInitialized = true;
     }
+  }
+
+  String _getGarmentCategory(Map<String, dynamic> g) {
+    dynamic metadataRaw = g['metadata'];
+    Map<String, dynamic>? metadata;
+    if (metadataRaw is List && metadataRaw.isNotEmpty) {
+      metadata = metadataRaw.first as Map<String, dynamic>?;
+    } else if (metadataRaw is Map) {
+      metadata = Map<String, dynamic>.from(metadataRaw);
+    }
+    if (metadata == null || metadata['physical'] == null) return '';
+    final cat = metadata['physical']['category'];
+    if (cat == null) return '';
+    return (Localizations.localeOf(context).languageCode == 'es' 
+        ? (cat['es'] ?? cat['en'] ?? '') 
+        : (cat['en'] ?? cat['es'] ?? '')).toString();
+  }
+
+  List<String> get _currentTabCategories {
+    final l10n = AppLocalizations.of(context)!;
+    final Set<String> cats = {l10n.allCategories};
+    
+    if (_tabController.index == 0) {
+      for (var g in _garments) {
+        final name = _getGarmentCategory(g);
+        if (name.isNotEmpty) cats.add(name);
+      }
+    } else {
+      for (var s in _sessions) {
+        final garments = s['garments'] as List<dynamic>? ?? [];
+        for (var g in garments) {
+          final name = _getGarmentCategory(g);
+          if (name.isNotEmpty) cats.add(name);
+        }
+      }
+    }
+
+    final sorted = cats.toList()
+      ..sort((a, b) {
+        if (a == l10n.allCategories) return -1;
+        if (b == l10n.allCategories) return 1;
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+    
+    // Ensure selected category is still valid
+    if (!sorted.contains(_selectedCategory)) {
+      _selectedCategory = l10n.allCategories;
+    }
+
+    return sorted;
   }
 
   @override
@@ -168,22 +211,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   List<dynamic> get _filteredGarments {
-    if (_selectedCategory == AppLocalizations.of(context)!.allCategories) return _garments;
-    return _garments.where((g) {
-      dynamic metadataRaw = g['metadata'];
-      Map<String, dynamic>? metadata;
-      if (metadataRaw is List && metadataRaw.isNotEmpty) {
-        metadata = metadataRaw.first as Map<String, dynamic>?;
-      } else if (metadataRaw is Map) {
-        metadata = Map<String, dynamic>.from(metadataRaw);
-      }
-
-      if (metadata == null || metadata['physical'] == null) return false;
-      final cat = metadata['physical']['category'];
-      final categoryName = (cat['en'] ?? cat['es'] ?? '').toString().toLowerCase();
-      final categoryNameEs = (cat['es'] ?? '').toString().toLowerCase();
-      return categoryName == _selectedCategory.toLowerCase() || categoryNameEs == _selectedCategory.toLowerCase();
-    }).toList();
+    final l10n = AppLocalizations.of(context)!;
+    if (_selectedCategory == l10n.allCategories) return _garments;
+    return _garments.where((g) => _getGarmentCategory(g) == _selectedCategory).toList();
   }
 
   List<dynamic> get _filteredSessions {
@@ -191,21 +221,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     if (_selectedCategory == allLabel) return _sessions;
     return _sessions.where((session) {
       final garments = session['garments'] as List<dynamic>? ?? [];
-      return garments.any((g) {
-        dynamic metadataRaw = g['metadata'];
-        Map<String, dynamic>? metadata;
-        if (metadataRaw is List && metadataRaw.isNotEmpty) {
-          metadata = metadataRaw.first as Map<String, dynamic>?;
-        } else if (metadataRaw is Map) {
-          metadata = Map<String, dynamic>.from(metadataRaw);
-        }
-
-        if (metadata == null || metadata['physical'] == null) return false;
-        final cat = metadata['physical']['category'];
-        final categoryName = (cat['en'] ?? cat['es'] ?? '').toString().toLowerCase();
-        final categoryNameEs = (cat['es'] ?? '').toString().toLowerCase();
-        return categoryName == _selectedCategory.toLowerCase() || categoryNameEs == _selectedCategory.toLowerCase();
-      });
+      return garments.any((g) => _getGarmentCategory(g as Map<String, dynamic>) == _selectedCategory);
     }).toList();
   }
 
@@ -415,11 +431,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 
   Widget _buildCategoryFilters() {
+    final categories = _currentTabCategories;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
-        children: _categories.map((cat) {
+        children: categories.map((cat) {
           final isSelected = _selectedCategory == cat;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -650,10 +667,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     if (metadata == null || metadata['physical'] == null) {
       return const SizedBox.shrink();
     }
-    final cat = metadata['physical']['category'];
-    final categoryName = Localizations.localeOf(context).languageCode == 'es' 
-        ? (cat['es'] ?? '') 
-        : (cat['en'] ?? '');
+    final categoryName = _getGarmentCategory(garment);
 
     if (categoryName.isEmpty) return const SizedBox.shrink();
 
