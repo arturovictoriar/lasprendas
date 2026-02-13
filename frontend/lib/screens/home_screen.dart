@@ -35,6 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _processingPersonType = 'female'; // Tracking the gender being processed
   final ImagePicker _picker = ImagePicker();
   final _storage = StorageService();
+  final TransformationController _transformationController = TransformationController();
+  TapDownDetails? _doubleTapDetails;
 
   Future<void> _resilientWrite(String key, String value) async {
     await _storage.write(key: key, value: value);
@@ -219,6 +221,12 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       print('Error clearing state: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -645,40 +653,54 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       clipBehavior: Clip.antiAlias,
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
-                        child: _resultPath != null
-                            ? CachedNetworkImage(
-                                imageUrl: ApiService.getFullImageUrl(_resultPath), 
-                                key: ValueKey(_resultPath),
-                                fit: BoxFit.contain,
-                                memCacheHeight: 2400,
-                                fadeInDuration: Duration.zero,
-                                fadeOutDuration: Duration.zero,
-                                placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(color: Colors.white),
+                      child: GestureDetector(
+                        onDoubleTapDown: (details) => _doubleTapDetails = details,
+                        onDoubleTap: () {
+                          if (_transformationController.value.getMaxScaleOnAxis() > 1.0) {
+                            _transformationController.value = Matrix4.identity();
+                          } else {
+                            final position = _doubleTapDetails!.localPosition;
+                            _transformationController.value = Matrix4.identity()
+                              ..translate(-position.dx * (2.5 - 1), -position.dy * (2.5 - 1))
+                              ..scale(2.5);
+                          }
+                        },
+                        child: InteractiveViewer(
+                          transformationController: _transformationController,
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: _resultPath != null
+                              ? CachedNetworkImage(
+                                  imageUrl: ApiService.getFullImageUrl(_resultPath), 
+                                  key: ValueKey(_resultPath),
+                                  fit: BoxFit.contain,
+                                  memCacheHeight: 2400,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(color: Colors.white),
+                                  ),
+                                  errorWidget: (context, url, error) {
+                                    return Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          AppLocalizations.of(context)!.errorLoadingResult,
+                                          style: TextStyle(color: Colors.white70),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                )
+                              : Image.asset(
+                                  _personType == 'female' 
+                                      ? 'assets/images/female_mannequin_anchor.png' 
+                                      : 'assets/images/male_mannequin_anchor.png', 
+                                  fit: BoxFit.contain
                                 ),
-                                errorWidget: (context, url, error) {
-                                  return Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
-                                      SizedBox(height: 10),
-                                      Text(
-                                        AppLocalizations.of(context)!.errorLoadingResult,
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              )
-                            : Image.asset(
-                                _personType == 'female' 
-                                    ? 'assets/images/female_mannequin_anchor.png' 
-                                    : 'assets/images/male_mannequin_anchor.png', 
-                                fit: BoxFit.contain
-                              ),
+                        ),
                       ),
                     ),
                   ),

@@ -719,7 +719,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   }
 }
 
-class OutfitDetailScreen extends StatelessWidget {
+class OutfitDetailScreen extends StatefulWidget {
   final String? imageUrl;
   final File? localFile;
 
@@ -730,25 +730,53 @@ class OutfitDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<OutfitDetailScreen> createState() => _OutfitDetailScreenState();
+}
+
+class _OutfitDetailScreenState extends State<OutfitDetailScreen> {
+  final TransformationController _transformationController = TransformationController();
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           Center(
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: localFile != null
-                  ? Image.file(localFile!, fit: BoxFit.contain)
-                  : (imageUrl != null && imageUrl!.isNotEmpty)
-                      ? CachedNetworkImage(
-                          imageUrl: imageUrl!,
-                          fit: BoxFit.contain,
-                          placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white24),
-                          errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
-                        )
-                      : const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 80)),
+            child: GestureDetector(
+              onDoubleTapDown: (details) => _doubleTapDetails = details,
+              onDoubleTap: () {
+                if (_transformationController.value.getMaxScaleOnAxis() > 1.0) {
+                  _transformationController.value = Matrix4.identity();
+                } else {
+                  final position = _doubleTapDetails!.localPosition;
+                  _transformationController.value = Matrix4.identity()
+                    ..translate(-position.dx * (2.5 - 1), -position.dy * (2.5 - 1))
+                    ..scale(2.5);
+                }
+              },
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: widget.localFile != null
+                    ? Image.file(widget.localFile!, fit: BoxFit.contain)
+                    : (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
+                        ? CachedNetworkImage(
+                            imageUrl: widget.imageUrl!,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white24),
+                            errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white24),
+                          )
+                        : const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 80)),
+              ),
             ),
           ),
           SafeArea(
@@ -769,18 +797,32 @@ class OutfitDetailScreen extends StatelessWidget {
   }
 }
 
-class OutfitManagementScreen extends StatelessWidget {
+class OutfitManagementScreen extends StatefulWidget {
   final Map<String, dynamic> session;
 
   const OutfitManagementScreen({super.key, required this.session});
 
   @override
+  State<OutfitManagementScreen> createState() => _OutfitManagementScreenState();
+}
+
+class _OutfitManagementScreenState extends State<OutfitManagementScreen> {
+  final TransformationController _transformationController = TransformationController();
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final garments = session['garments'] as List;
-    final mannequinUrl = session['mannequinUrl'] ?? '';
-    final gender = session['personType'] ?? 
+    final garments = widget.session['garments'] as List;
+    final mannequinUrl = widget.session['mannequinUrl'] ?? '';
+    final gender = widget.session['personType'] ?? 
         (mannequinUrl.contains('female') ? 'female' : (mannequinUrl.contains('male') ? 'male' : 'female'));
-    final dateStr = session['createdAt'].toString().substring(0, 10);
+    final dateStr = widget.session['createdAt'].toString().substring(0, 10);
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
@@ -822,20 +864,34 @@ class OutfitManagementScreen extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       clipBehavior: Clip.antiAlias,
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
-                        child: session['resultUrl'] != null && session['resultUrl'].toString().isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: ApiService.getFullImageUrl(session['resultUrl']),
-                              fit: BoxFit.contain,
-                              memCacheHeight: 1200,
-                              fadeInDuration: Duration.zero,
-                              fadeOutDuration: Duration.zero,
-                              placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
-                              errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
-                            )
-                          : const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 80)),
+                      child: GestureDetector(
+                        onDoubleTapDown: (details) => _doubleTapDetails = details,
+                        onDoubleTap: () {
+                          if (_transformationController.value.getMaxScaleOnAxis() > 1.0) {
+                            _transformationController.value = Matrix4.identity();
+                          } else {
+                            final position = _doubleTapDetails!.localPosition;
+                            _transformationController.value = Matrix4.identity()
+                              ..translate(-position.dx * (2.5 - 1), -position.dy * (2.5 - 1))
+                              ..scale(2.5);
+                          }
+                        },
+                        child: InteractiveViewer(
+                          transformationController: _transformationController,
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: widget.session['resultUrl'] != null && widget.session['resultUrl'].toString().isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: ApiService.getFullImageUrl(widget.session['resultUrl']),
+                                fit: BoxFit.contain,
+                                memCacheHeight: 1200,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
+                                placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white24)),
+                                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.white10, size: 50),
+                              )
+                            : const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 80)),
+                        ),
                       ),
                     ),
                   ),
@@ -852,9 +908,9 @@ class OutfitManagementScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.pop(context, {
                         'type': 'retake',
-                        'garments': session['garments'],
+                        'garments': widget.session['garments'],
                         'gender': gender,
-                        'resultUrl': session['resultUrl'],
+                        'resultUrl': widget.session['resultUrl'],
                       });
                     },
                     icon: const Icon(Icons.tune, color: Colors.white, size: 20),
