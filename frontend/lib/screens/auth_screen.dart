@@ -82,6 +82,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,

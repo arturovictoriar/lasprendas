@@ -44,6 +44,9 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       if (mounted) {
         setState(() {
           if (_tabController.indexIsChanging) {
+            // Dismiss keyboard when switching tabs
+            FocusScope.of(context).unfocus();
+            
             // Reset search when switching tabs
             _searchController.clear();
             _isSmartSearchActive = false;
@@ -302,7 +305,10 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -328,21 +334,17 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           ),
         ),
         child: SafeArea(
-          child: GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            behavior: HitTestBehavior.opaque,
-            child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : TabBarView(
-                  controller: _tabController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [_buildLibraryTab(), _buildOutfitsTab()],
-                ),
-          ),
+          child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [_buildLibraryTab(), _buildOutfitsTab()],
+              ),
         ),
       ),
       bottomNavigationBar: _shouldShowBottomBar() ? _buildBottomBar() : null,
-    );
+    ));
   }
 
   bool _shouldShowBottomBar() {

@@ -149,7 +149,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -171,127 +174,128 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.verificationTitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '${l10n.verificationInstruction}\n${widget.email}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _timerText,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(
-                      6,
-                      (index) => SizedBox(
-                        width: 45,
-                        height: 55,
-                        child: TextFormField(
-                          controller: _controllers[index],
-                          focusNode: _focusNodes[index],
-                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                          keyboardType: TextInputType.number,
-                          maxLength: 2, // 1 for the placeholder, 1 for the digit
-                          decoration: InputDecoration(
-                            counterText: '',
-                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: const BorderSide(color: Colors.white24),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: const BorderSide(color: Colors.white),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onChanged: (value) {
-                            if (value.isEmpty) {
-                              // Placeholder was deleted -> Backspace
-                              if (index > 0) {
-                                _focusNodes[index - 1].requestFocus();
-                                _controllers[index - 1].text = '\u200B'; // Clear previous and keep placeholder
-                              }
-                              _controllers[index].text = '\u200B'; // Restore placeholder in current
-                            } else if (value.length > 1) {
-                              // Digit was added
-                              final digit = value.replaceAll('\u200B', '');
-                              _controllers[index].text = '\u200B$digit'; // Keep placeholder + digit
-                              if (index < 5) {
-                                _focusNodes[index + 1].requestFocus();
-                              } else {
-                                _focusNodes[index].unfocus();
-                              }
-                            }
-                            _checkCodeCompletion();
-                          },
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l10n.verificationTitle,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Consumer<AuthProvider>(
-                    builder: (context, auth, _) => ElevatedButton(
-                      onPressed: (auth.isLoading || _failedAttempts >= 3 || !_isCodeComplete) ? null : _verify,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 16),
+                      Text(
+                        '${l10n.verificationInstruction}\n${widget.email}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
-                      child: auth.isLoading
-                          ? const CircularProgressIndicator(color: Colors.black)
-                          : Text(_failedAttempts >= 3 ? l10n.codeInvalidated : (widget.isResetPassword ? l10n.continueButton : l10n.verify)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _secondsRemaining > 0 ? null : _resend,
-                    child: Text(
-                      _secondsRemaining > 0 
-                        ? l10n.resendAvailableIn(_timerText) 
-                        : l10n.resendCode,
-                      style: TextStyle(
-                        color: _secondsRemaining > 0 ? Colors.white24 : Colors.white70
+                      const SizedBox(height: 24),
+                      Text(
+                        _timerText,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _secondsRemaining < 60 ? Colors.redAccent : Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(
+                          6,
+                          (index) => SizedBox(
+                            width: 45,
+                            height: 55,
+                            child: TextFormField(
+                              controller: _controllers[index],
+                              focusNode: _focusNodes[index],
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                              keyboardType: TextInputType.number,
+                              maxLength: 2, // 1 for the placeholder, 1 for the digit
+                              decoration: InputDecoration(
+                                counterText: '',
+                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Colors.white24),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Colors.white),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                if (value.isEmpty) {
+                                  // Placeholder was deleted -> Backspace
+                                  if (index > 0) {
+                                    _focusNodes[index - 1].requestFocus();
+                                    _controllers[index - 1].text = '\u200B'; // Clear previous and keep placeholder
+                                  }
+                                  _controllers[index].text = '\u200B'; // Restore placeholder in current
+                                } else if (value.length > 1) {
+                                  // Digit was added
+                                  final digit = value.replaceAll('\u200B', '');
+                                  _controllers[index].text = '\u200B$digit'; // Keep placeholder + digit
+                                  if (index < 5) {
+                                    _focusNodes[index + 1].requestFocus();
+                                  } else {
+                                    _focusNodes[index].unfocus();
+                                  }
+                                }
+                                _checkCodeCompletion();
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Consumer<AuthProvider>(
+                        builder: (context, auth, _) => ElevatedButton(
+                          onPressed: (auth.isLoading || _failedAttempts >= 3 || !_isCodeComplete) ? null : _verify,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: auth.isLoading
+                              ? const CircularProgressIndicator(color: Colors.black)
+                              : Text(_failedAttempts >= 3 ? l10n.codeInvalidated : (widget.isResetPassword ? l10n.continueButton : l10n.verify)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: _secondsRemaining > 0 ? null : _resend,
+                        child: Text(
+                          _secondsRemaining > 0 
+                            ? l10n.resendAvailableIn(_timerText) 
+                            : l10n.resendCode,
+                          style: TextStyle(
+                            color: _secondsRemaining > 0 ? Colors.white24 : Colors.white70
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }
