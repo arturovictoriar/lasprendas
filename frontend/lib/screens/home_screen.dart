@@ -230,7 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (image != null && mounted) {
         setState(() {
           _selectedItems.add(File(image.path));
-          _resultPath = null;
         });
         _savePersistedState();
       }
@@ -266,7 +265,6 @@ class _HomeScreenState extends State<HomeScreen> {
         
         setState(() {
           _selectedItems.add(file);
-          _resultPath = null;
         });
         _savePersistedState();
         
@@ -342,9 +340,6 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _selectedItems.clear();
           _selectedItems.addAll(result);
-          if (hasChanged) {
-            _resultPath = null;
-          }
         });
         _savePersistedState();
       } else if (result is Map && result['type'] == 'retake') {
@@ -528,9 +523,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _removeImage(int index) {
     setState(() {
       _selectedItems.removeAt(index);
-      if (_selectedItems.isEmpty) {
-        _resultPath = null;
-      }
     });
     _savePersistedState();
   }
@@ -593,7 +585,7 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (_selectedItems.isNotEmpty)
+          if (_selectedItems.isNotEmpty || _resultPath != null)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {

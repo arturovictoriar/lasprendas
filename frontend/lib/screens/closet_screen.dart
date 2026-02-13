@@ -328,13 +328,17 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
           ),
         ),
         child: SafeArea(
-          child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-            : TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [_buildLibraryTab(), _buildOutfitsTab()],
-              ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            behavior: HitTestBehavior.opaque,
+            child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              : TabBarView(
+                  controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [_buildLibraryTab(), _buildOutfitsTab()],
+                ),
+          ),
         ),
       ),
       bottomNavigationBar: _shouldShowBottomBar() ? _buildBottomBar() : null,
@@ -410,20 +414,41 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       child: TextField(
         controller: _searchController,
+        maxLength: 70,
         style: const TextStyle(color: Colors.white, fontSize: 14),
         decoration: InputDecoration(
           hintText: l10n.localeName == 'es' ? 'Busca por color, estilo u ocasión...' : 'Search...',
           prefixIcon: const Icon(Icons.auto_awesome, color: Colors.blueAccent),
           filled: true,
           fillColor: const Color(0xFF1E1E1E),
+          counterText: "",
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-          suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.close), onPressed: () {
-            _searchController.clear();
-            setState(() { _isSmartSearchActive = false; _aiResults = null; });
-          }) : null,
+          suffixIconConstraints: const BoxConstraints(maxWidth: 80),
+          suffixIcon: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_searchController.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                      setState(() { _isSmartSearchActive = false; _aiResults = null; });
+                    },
+                    child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_searchController.text.length}/70',
+                  style: const TextStyle(color: Colors.white24, fontSize: 9, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
         ),
         onChanged: (val) {
-          if (val.isEmpty || val.length == 1) setState(() {});
+          setState(() {}); // Update counter on every change
         },
         onSubmitted: (_) => _handleSmartSearch(),
       ),
@@ -781,7 +806,7 @@ class OutfitManagementScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
