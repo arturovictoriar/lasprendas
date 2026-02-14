@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'storage_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.10.17:3000';
+  static const String baseUrl = 'http://beta-api.lasprendas.com';
   static final _storage = StorageService();
 
   static Future<Map<String, String>> _headers() async {
