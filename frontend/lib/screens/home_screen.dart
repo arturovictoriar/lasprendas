@@ -336,22 +336,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    // Always refresh data from API when returning from Closet to ensure tags/metadata are up to date
-    await _refreshSelectedWithLatestData();
-
     if (result != null) {
       if (result is List) {
-        final currentFingerprint = _calculateGarmentsFingerprint(sourceItems);
-        final newFingerprint = _calculateGarmentsFingerprint(result);
-        final hasChanged = currentFingerprint != newFingerprint;
-
         setState(() {
           _selectedItems.clear();
           _selectedItems.addAll(result);
         });
-        _savePersistedState();
       } else if (result is Map && result['type'] == 'retake') {
-        // New behavior: retaking a whole outfit
         setState(() {
           _selectedItems.clear();
           _selectedItems.addAll(result['garments']);
@@ -361,6 +352,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       _savePersistedState();
     }
+
+    // Refresh metadata in the background AFTER updating the UI to avoid delay
+    _refreshSelectedWithLatestData();
   }
 
   Future<void> _tryOn() async {

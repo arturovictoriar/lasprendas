@@ -27,6 +27,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
   List<dynamic> _confirmedGarments = [];
   bool _isGarmentSelectionMode = false;
   bool _isOutfitSelectionMode = false;
+  bool _isDeletionMode = false;
   final Set<String> _selectedGarmentsForDelete = {};
   final Set<String> _selectedOutfitsForDelete = {};
   
@@ -55,19 +56,10 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             // Reset category filter
             _selectedCategory = AppLocalizations.of(context)!.allCategories;
 
-            // Reset selection state
-            _selectedInSession.clear();
-            _selectedInSession.addAll(_confirmedGarments);
-            
+            // Reset deletion state when switching tabs
             _selectedGarmentsForDelete.clear();
-            for (var g in _confirmedGarments) {
-              if (g is Map) {
-                _selectedGarmentsForDelete.add(g['id'].toString());
-              }
-            }
-            _isGarmentSelectionMode = _selectedInSession.isNotEmpty;
             _selectedOutfitsForDelete.clear();
-            _isOutfitSelectionMode = false;
+            _isDeletionMode = false;
           }
         });
       }
@@ -76,11 +68,6 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
     _confirmedGarments = List.from(widget.initialSelectedGarments);
     if (_selectedInSession.isNotEmpty) {
       _isGarmentSelectionMode = true;
-      for (var g in widget.initialSelectedGarments) {
-        if (g is Map) {
-          _selectedGarmentsForDelete.add(g['id'].toString());
-        }
-      }
     }
     _loadData();
   }
@@ -282,16 +269,24 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       setState(() => _isLoading = true);
       try {
         if (isLibraryTab) {
-          for (final id in _selectedGarmentsForDelete) await ApiService.deleteGarment(id);
+          for (final id in _selectedGarmentsForDelete) {
+            await ApiService.deleteGarment(id);
+            // Remove from selection lists as well
+            _selectedInSession.removeWhere((g) => g is Map && g['id'].toString() == id);
+            _confirmedGarments.removeWhere((g) => g is Map && g['id'].toString() == id);
+          }
           setState(() {
             _garments.removeWhere((g) => _selectedGarmentsForDelete.contains(g['id'].toString()));
             _selectedGarmentsForDelete.clear();
+            _isDeletionMode = false;
+            _isGarmentSelectionMode = _selectedInSession.isNotEmpty;
           });
         } else {
           for (final id in _selectedOutfitsForDelete) await ApiService.deleteSession(id);
           setState(() {
             _sessions.removeWhere((s) => _selectedOutfitsForDelete.contains(s['id'].toString()));
             _selectedOutfitsForDelete.clear();
+            _isDeletionMode = false;
           });
         }
       } catch (e) {
@@ -314,12 +309,27 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white70),
-          onPressed: () => Navigator.pop(context, _confirmedGarments),
+          onPressed: () => Navigator.pop(context, _selectedInSession),
         ),
         title: Text(l10n.closetTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_isDeletionMode ? Icons.edit : Icons.edit_outlined, color: _isDeletionMode ? Colors.redAccent : Colors.white70),
+            onPressed: () => setState(() {
+              _isDeletionMode = !_isDeletionMode;
+              if (_isDeletionMode) {
+                _isGarmentSelectionMode = false;
+                _isOutfitSelectionMode = false;
+              } else {
+                _selectedGarmentsForDelete.clear();
+                _selectedOutfitsForDelete.clear();
+              }
+            }),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: [Tab(text: l10n.myGarmentsTab), Tab(text: l10n.myOutfitsTab)],
@@ -349,64 +359,131 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
 
   bool _shouldShowBottomBar() {
     if (_isLoading) return false;
-    return _tabController.index == 0 ? _garments.isNotEmpty : _sessions.isNotEmpty;
+    if (_isDeletionMode) return true;
+    if (_tabController.index == 1) return false; // Hide "SELECT" in Outfits tab
+    return _garments.isNotEmpty;
   }
 
   Widget _buildBottomBar() {
     return Container(
       padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: MediaQuery.of(context).padding.bottom + 4),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: _isDeletionMode ? const Color(0xFF2C1B1B) : const Color(0xFF1E1E1E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      child: _tabController.index == 0 
-        ? (_isGarmentSelectionMode ? _buildEditModeActions() : _buildNormalModeActions())
-        : (_isOutfitSelectionMode ? _buildEditModeActions() : _buildNormalModeActions()),
+      child: _isDeletionMode 
+        ? _buildDeletionModeActions()
+        : (_tabController.index == 0 
+          ? (_isGarmentSelectionMode ? _buildEditModeActions() : _buildNormalModeActions())
+          : (_isOutfitSelectionMode ? _buildEditModeActions() : _buildNormalModeActions())),
     );
   }
 
   Widget _buildNormalModeActions() {
-    return ElevatedButton.icon(
-      onPressed: () => setState(() => _tabController.index == 0 ? _isGarmentSelectionMode = true : _isOutfitSelectionMode = true),
-      icon: const Icon(Icons.check_circle_outline),
-      label: Text(AppLocalizations.of(context)!.selectButton),
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.white12, foregroundColor: Colors.white),
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton.icon(
+        onPressed: () => setState(() => _tabController.index == 0 ? _isGarmentSelectionMode = true : _isOutfitSelectionMode = true),
+        icon: const Icon(Icons.check_circle_outline, size: 20),
+        label: Text(AppLocalizations.of(context)!.selectButton.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white12, 
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          elevation: 0,
+        ),
+      ),
     );
   }
 
   Widget _buildEditModeActions() {
     final totalCount = _selectedInSession.length;
     final isLibraryTab = _tabController.index == 0;
-    final hasDeleteSelection = isLibraryTab ? _selectedGarmentsForDelete.isNotEmpty : _selectedOutfitsForDelete.isNotEmpty;
 
-    return Row(
-      children: [
-        TextButton(
-          onPressed: () => setState(() {
-            if (isLibraryTab) {
-              _isGarmentSelectionMode = false;
-              _selectedGarmentsForDelete.clear();
-            } else {
-              _isOutfitSelectionMode = false;
-              _selectedOutfitsForDelete.clear();
-            }
-          }),
-          child: Text(AppLocalizations.of(context)!.cancel),
-        ),
-        IconButton(
-          icon: Icon(Icons.delete_outline, color: hasDeleteSelection ? Colors.redAccent : Colors.white24),
-          onPressed: hasDeleteSelection ? _handleBulkDelete : null,
-        ),
-        if (isLibraryTab)
-          Expanded(
-            child: ElevatedButton(
-              onPressed: totalCount == 0 ? null : () => Navigator.pop(context, _selectedInSession),
-              child: Text(AppLocalizations.of(context)!.useButton(totalCount)),
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: () => setState(() {
+              if (isLibraryTab) {
+                _isGarmentSelectionMode = false;
+                _selectedInSession.clear();
+                _selectedInSession.addAll(_confirmedGarments);
+              } else {
+                _isOutfitSelectionMode = false;
+              }
+            }),
+            style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          if (isLibraryTab)
+            TextButton(
+              onPressed: _selectedInSession.any((item) => item is Map) 
+                  ? () => setState(() => _selectedInSession.removeWhere((item) => item is Map))
+                  : null,
+              style: TextButton.styleFrom(
+                foregroundColor: _selectedInSession.any((item) => item is Map) ? Colors.blueAccent : Colors.white24,
+              ),
+              child: const Text('LIMPIAR'),
             ),
-          )
-        else
-          const Spacer(),
-      ],
+          const SizedBox(width: 12),
+          if (isLibraryTab)
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _selectedInSession.any((item) => item is Map) ? () => Navigator.pop(context, _selectedInSession) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: Text(AppLocalizations.of(context)!.useButton(totalCount).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            )
+          else
+            const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeletionModeActions() {
+    final isLibraryTab = _tabController.index == 0;
+    final hasDeleteSelection = isLibraryTab ? _selectedGarmentsForDelete.isNotEmpty : _selectedOutfitsForDelete.isNotEmpty;
+    final count = isLibraryTab ? _selectedGarmentsForDelete.length : _selectedOutfitsForDelete.length;
+
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: () => setState(() {
+              _isDeletionMode = false;
+              _selectedGarmentsForDelete.clear();
+              _selectedOutfitsForDelete.clear();
+            }),
+            style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: hasDeleteSelection ? _handleBulkDelete : null,
+              icon: const Icon(Icons.delete_outline, size: 20),
+              label: Text(
+                '${AppLocalizations.of(context)!.deleteSelected} ($count)'.toUpperCase(), 
+                style: const TextStyle(fontWeight: FontWeight.bold)
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent.withOpacity(0.9),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -519,21 +596,23 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             itemCount: listToShow.length,
                 itemBuilder: (context, index) {
                   final garment = listToShow[index];
-                  final isSelected = _selectedInSession.any((g) => 
+                  final id = garment['id'].toString();
+                  final isSelectedForUse = _selectedInSession.any((g) => 
                     g is Map && 
                     g['id'] != null && 
-                    garment['id'] != null && 
-                    g['id'].toString() == garment['id'].toString()
+                    g['id'].toString() == id
                   );
+                  final isSelectedForDelete = _selectedGarmentsForDelete.contains(id);
+                  
                   return GestureDetector(
                 onTap: () {
-                  if (_isGarmentSelectionMode) {
-                    _toggleSelection(garment);
+                  if (_isDeletionMode) {
                     setState(() {
-                      final id = garment['id'].toString();
-                      if (_selectedGarmentsForDelete.contains(id)) _selectedGarmentsForDelete.remove(id);
+                      if (isSelectedForDelete) _selectedGarmentsForDelete.remove(id);
                       else _selectedGarmentsForDelete.add(id);
                     });
+                  } else if (_isGarmentSelectionMode) {
+                    _toggleSelection(garment);
                   } else {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => OutfitDetailScreen(
                       imageUrl: ApiService.getFullImageUrl(garment['originalUrl']),
@@ -548,7 +627,12 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? Colors.blueAccent : Colors.white10, width: isSelected ? 2.5 : 1),
+                    border: Border.all(
+                      color: isSelectedForDelete 
+                        ? Colors.redAccent 
+                        : (isSelectedForUse ? Colors.blueAccent : Colors.white10), 
+                      width: (isSelectedForDelete || isSelectedForUse) ? 2.5 : 1,
+                    ),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -566,11 +650,18 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                               color: Colors.white.withOpacity(0.05),
                               child: const Icon(Icons.broken_image, color: Colors.white12),
                             ),
-                        if (isSelected) 
+                        if (isSelectedForUse && !_isDeletionMode) 
                           Container(
                             color: Colors.black26,
                             child: const Center(
                               child: Icon(Icons.check_circle, color: Colors.blueAccent, size: 30),
+                            ),
+                          ),
+                        if (isSelectedForDelete)
+                          Container(
+                            color: Colors.black45,
+                            child: const Center(
+                              child: Icon(Icons.delete, color: Colors.redAccent, size: 30),
                             ),
                           ),
                         _buildCategoryBadge(garment),
@@ -613,13 +704,13 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
             itemCount: listToShow.length,
             itemBuilder: (context, index) {
               final session = listToShow[index];
-              final isSelected = _selectedOutfitsForDelete.contains(session['id'].toString());
+              final id = session['id'].toString();
+              final isSelectedForDelete = _selectedOutfitsForDelete.contains(id);
               return GestureDetector(
                 onTap: () async {
-                  if (_isOutfitSelectionMode) {
+                  if (_isDeletionMode) {
                     setState(() {
-                      final id = session['id'].toString();
-                      if (isSelected) _selectedOutfitsForDelete.remove(id);
+                      if (isSelectedForDelete) _selectedOutfitsForDelete.remove(id);
                       else _selectedOutfitsForDelete.add(id);
                     });
                   } else {
@@ -638,7 +729,7 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                   decoration: BoxDecoration(
                     color: Colors.black, 
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: isSelected ? Colors.blueAccent : Colors.transparent, width: isSelected ? 2.5 : 0),
+                    border: Border.all(color: isSelectedForDelete ? Colors.redAccent : Colors.transparent, width: isSelectedForDelete ? 2.5 : 0),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(15),
@@ -657,14 +748,14 @@ class _ClosetScreenState extends State<ClosetScreen> with SingleTickerProviderSt
                               color: Colors.white.withOpacity(0.05),
                               child: const Center(child: Icon(Icons.auto_awesome, color: Colors.white10, size: 40)),
                             ),
-                        if (isSelected)
+                         if (isSelectedForDelete)
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.black26,
+                              color: Colors.black45,
                               borderRadius: BorderRadius.circular(13),
                             ),
                             child: const Center(
-                              child: Icon(Icons.check_circle, color: Colors.blueAccent, size: 40),
+                              child: Icon(Icons.delete, color: Colors.redAccent, size: 40),
                             ),
                           ),
                       ],
